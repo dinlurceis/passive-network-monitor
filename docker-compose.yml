@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: netmon_db
+    environment:
+      POSTGRES_USER: netmon
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: netmon
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netmon -d netmon"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: netmon_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  netmon_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+    container_name: netmon_app
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=netmon
+      - DB_USER=netmon
+      - DB_PASSWORD=secret
+      - PCAP_FILE=samples/test.pcap
+      - LOG_LEVEL=debug
+    volumes:
+      - ./samples:/app/samples
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Override CMD từ ctest (trong Dockerfile.build) sang chạy app chính
+    command: ["./build/debug/netmon"]
+
+volumes:
+  postgres_data:

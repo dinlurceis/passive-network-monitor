@@ -1,8 +1,39 @@
-#include "config.hpp"
+#include "config/config.hpp"
 #include <cstdlib>
 #include <format>
+#include <fstream>
+#include <sstream>
 
 namespace netmon {
+
+// Hàm đơn giản để đọc file .env và set environment variables
+static void load_dotenv(const std::string& path = ".env") {
+    std::ifstream file(path);
+    if (!file.is_open()) return;
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // Bỏ qua dòng trống hoặc comment
+        if (line.empty() || line[0] == '#') continue;
+
+        auto pos = line.find('=');
+        if (pos != std::string::npos) {
+            std::string key = line.substr(0, pos);
+            std::string val = line.substr(pos + 1);
+            
+            // Xóa khoảng trắng và dấu ngoặc kép thừa
+            key.erase(0, key.find_first_not_of(" \t\r\n"));
+            key.erase(key.find_last_not_of(" \t\r\n") + 1);
+            val.erase(0, val.find_first_not_of(" \t\r\n\"'"));
+            val.erase(val.find_last_not_of(" \t\r\n\"'") + 1);
+
+            // Chỉ set nếu biến chưa tồn tại trong môi trường
+            if (std::getenv(key.c_str()) == nullptr) {
+                setenv(key.c_str(), val.c_str(), 0);
+            }
+        }
+    }
+}
 
 static std::string getenv_or(const char* name, const std::string& def) {
     const char* v = std::getenv(name);
@@ -10,6 +41,8 @@ static std::string getenv_or(const char* name, const std::string& def) {
 }
 
 Config Config::from_env() {
+    load_dotenv(); // Tự động load file .env ở thư mục chạy
+
     Config c;
     c.db_host       = getenv_or("DB_HOST",     "localhost");
     c.db_port       = std::stoi(getenv_or("DB_PORT", "5432"));
