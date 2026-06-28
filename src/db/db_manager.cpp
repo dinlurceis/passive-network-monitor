@@ -5,15 +5,15 @@
 
 namespace netmon {
 
-// ─── Constructor ─────────────────────────────────────────────────────────────
-DbManager::DbManager(const std::string& conn_str) {
-    conn_ = std::make_unique<pqxx::connection>(conn_str);
+// Constructor
+DbManager::DbManager(const std::string& connection_str) {
+    connection_ = std::make_unique<pqxx::connection>(connection_str);
 }
 
 // ─── ping ────────────────────────────────────────────────────────────────────
 bool DbManager::ping() {
     try {
-        pqxx::work txn(*conn_);
+        pqxx::work txn(*connection_);
         txn.exec("SELECT 1");
         txn.commit();
         return true;
@@ -25,7 +25,7 @@ bool DbManager::ping() {
 
 // ─── initialize_schema ───────────────────────────────────────────────────────
 void DbManager::initialize_schema() {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
 
     txn.exec(R"sql(
         CREATE TABLE IF NOT EXISTS assets (
@@ -94,7 +94,7 @@ Asset DbManager::row_to_asset(const pqxx::row& row) {
 
 // ─── find_asset_by_mac ────────────────────────────────────────────────────────
 std::optional<Asset> DbManager::find_asset_by_mac(const std::string& mac) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     auto result = txn.exec_params(
         "SELECT id, mac, ip, hostname, vendor, os_guess, is_active, first_seen, last_seen "
         "FROM assets WHERE mac = $1",
@@ -106,7 +106,7 @@ std::optional<Asset> DbManager::find_asset_by_mac(const std::string& mac) {
 
 // ─── find_asset_by_ip ────────────────────────────────────────────────────────
 std::optional<Asset> DbManager::find_asset_by_ip(const std::string& ip) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     auto result = txn.exec_params(
         "SELECT id, mac, ip, hostname, vendor, os_guess, is_active, first_seen, last_seen "
         "FROM assets WHERE ip = $1",
@@ -119,7 +119,7 @@ std::optional<Asset> DbManager::find_asset_by_ip(const std::string& ip) {
 // ─── insert_asset ─────────────────────────────────────────────────────────────
 // Uses UPSERT (ON CONFLICT) to avoid duplicate MAC inserts.
 Asset DbManager::insert_asset(const Asset& a) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
 
     // Build escaped strings. Use pqxx quoting for safety.
     // Pass empty strings as NULL using NULLIF in SQL.
@@ -140,7 +140,7 @@ Asset DbManager::insert_asset(const Asset& a) {
 
 // ─── update_asset ────────────────────────────────────────────────────────────
 void DbManager::update_asset(const Asset& a) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     txn.exec_params(
         "UPDATE assets SET ip=NULLIF($2,''), hostname=NULLIF($3,''), "
         "vendor=NULLIF($4,''), os_guess=NULLIF($5,''), "
@@ -151,28 +151,28 @@ void DbManager::update_asset(const Asset& a) {
 
 // ─── update_asset_last_seen ──────────────────────────────────────────────────
 void DbManager::update_asset_last_seen(int id) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     txn.exec_params("UPDATE assets SET last_seen=NOW() WHERE id=$1", id);
     txn.commit();
 }
 
 // ─── update_asset_ip ─────────────────────────────────────────────────────────
 void DbManager::update_asset_ip(int id, const std::string& ip) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     txn.exec_params("UPDATE assets SET ip=NULLIF($2,''), last_seen=NOW() WHERE id=$1", id, ip);
     txn.commit();
 }
 
 // ─── update_asset_hostname ───────────────────────────────────────────────────
 void DbManager::update_asset_hostname(int id, const std::string& hostname) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     txn.exec_params("UPDATE assets SET hostname=NULLIF($2,'') WHERE id=$1", id, hostname);
     txn.commit();
 }
 
 // ─── set_asset_inactive ──────────────────────────────────────────────────────
 void DbManager::set_asset_inactive(int id) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     txn.exec_params("UPDATE assets SET is_active=FALSE WHERE id=$1", id);
     txn.commit();
 }
@@ -183,7 +183,7 @@ void DbManager::insert_event(int asset_id,
                               const std::string& old_val,
                               const std::string& new_val,
                               const std::string& detail_json) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     txn.exec_params(
         "INSERT INTO events (asset_id, event_type, old_value, new_value, detail) "
         "VALUES ($1, $2, NULLIF($3,''), NULLIF($4,''), $5::jsonb)",
@@ -193,7 +193,7 @@ void DbManager::insert_event(int asset_id,
 
 // ─── get_all_assets ──────────────────────────────────────────────────────────
 std::vector<Asset> DbManager::get_all_assets(bool active_only) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     pqxx::result rows;
     if (active_only) {
         rows = txn.exec(
@@ -216,7 +216,7 @@ std::vector<Asset> DbManager::get_all_assets(bool active_only) {
 
 // ─── get_assets_not_seen_since ───────────────────────────────────────────────
 std::vector<Asset> DbManager::get_assets_not_seen_since(int seconds_ago) {
-    pqxx::work txn(*conn_);
+    pqxx::work txn(*connection_);
     // Use make_interval() to avoid SQL injection on the integer parameter
     auto rows = txn.exec_params(
         "SELECT id, mac, ip, hostname, vendor, os_guess, is_active, first_seen, last_seen "

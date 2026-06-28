@@ -10,7 +10,7 @@ namespace netmon {
 
 class DbManager {
 public:
-    explicit DbManager(const std::string& conn_str);
+    explicit DbManager(const std::string& connection_str);
     ~DbManager() = default;
 
     // Khởi tạo schema (CREATE TABLE IF NOT EXISTS inline)
@@ -41,7 +41,7 @@ public:
     bool ping();
 
 private:
-    std::unique_ptr<pqxx::connection> conn_;
+    std::unique_ptr<pqxx::connection> connection_;
 
     // Helper: convert pqxx row → Asset struct
     Asset row_to_asset(const pqxx::row& row);
