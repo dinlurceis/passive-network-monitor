@@ -37,3 +37,13 @@ tests/fixtures/*.pcap
 
 # Agents
 AGENTS.md
+
+*.log
+*.pcap
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.lib

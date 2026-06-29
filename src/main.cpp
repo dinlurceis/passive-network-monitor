@@ -5,8 +5,10 @@
 #include "parsers/ethernet_parser.hpp"
 #include "parsers/arp_parser.hpp"
 #include "parsers/dhcp_parser.hpp"
+#include "parsers/ipv4_parser.hpp"        // Phase 2: parse IPv4/UDP chuẩn hóa
 #include "tracker/asset_tracker.hpp"
 #include "db/db_manager.hpp"
+#include "enrichment/oui_lookup.hpp"      // Phase 2: tra cứu vendor từ MAC
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <csignal>
@@ -73,8 +75,14 @@ int main(int argc, char* argv[]) {
         db.initialize_schema();
         spdlog::info("Database connected and schema ready");
 
-        // Init tracker
-        netmon::AssetTracker tracker(db);
+        // Init OUI lookup — đọc file CSV một lần khi khởi động
+        netmon::OuiLookup oui(cfg.oui_file);
+        if (!oui.loaded()) {
+            spdlog::warn("OUI database not loaded. Run scripts/download_oui.sh to enable vendor lookup.");
+        }
+
+        // Init tracker (truyền oui để enrich vendor info)
+        netmon::AssetTracker tracker(db, oui);
 
         // Init PCAP reader
         g_reader = std::make_unique<netmon::PcapReader>(source, live);
@@ -102,38 +110,21 @@ int main(int argc, char* argv[]) {
                 }
             }
             else if (eth->ethertype == netmon::ETHERTYPE_IPV4) {
-                // Phase 1 minimal: parse IPv4 + UDP manually to reach DHCP payload
-                // IPv4 header: minimum 20 bytes
-                const uint8_t* ip_data = eth->payload;
-                size_t         ip_len  = eth->payload_len;
+                // Phase 2: dùng parse_ipv4() và parse_udp() thay cho code inline
+                auto ipv4 = netmon::parse_ipv4(eth->payload, eth->payload_len);
+                if (!ipv4 || ipv4->protocol != netmon::IP_PROTO_UDP) return;
 
-                if (ip_len < 20) return;
+                auto udp = netmon::parse_udp(ipv4->payload, ipv4->payload_len);
+                if (!udp) return;
 
-                uint8_t ihl      = (ip_data[0] & 0x0F) * 4;  // IP header length
-                uint8_t protocol = ip_data[9];
-
-                // Only process UDP (protocol 17)
-                if (protocol != 17 || ip_len < static_cast<size_t>(ihl) + 8) return;
-
-                const uint8_t* udp_data = ip_data + ihl;
-                uint16_t src_port = static_cast<uint16_t>((udp_data[0] << 8) | udp_data[1]);
-                uint16_t dst_port = static_cast<uint16_t>((udp_data[2] << 8) | udp_data[3]);
-                uint16_t udp_len  = static_cast<uint16_t>((udp_data[4] << 8) | udp_data[5]);
-
-                // DHCP: src or dst is port 67 or 68
-                bool is_dhcp = (src_port == netmon::DHCP_SERVER_PORT ||
-                                src_port == netmon::DHCP_CLIENT_PORT ||
-                                dst_port == netmon::DHCP_SERVER_PORT ||
-                                dst_port == netmon::DHCP_CLIENT_PORT);
-
+                // DHCP dùng port 67 (server) và 68 (client)
+                bool is_dhcp = (udp->src_port == netmon::DHCP_SERVER_PORT ||
+                                udp->src_port == netmon::DHCP_CLIENT_PORT ||
+                                udp->dst_port == netmon::DHCP_SERVER_PORT ||
+                                udp->dst_port == netmon::DHCP_CLIENT_PORT);
                 if (!is_dhcp) return;
 
-                // UDP payload starts at offset 8
-                if (udp_len < 8) return;
-                const uint8_t* dhcp_data = udp_data + 8;
-                size_t         dhcp_len  = static_cast<size_t>(udp_len) - 8;
-
-                auto dhcp = netmon::parse_dhcp(dhcp_data, dhcp_len);
+                auto dhcp = netmon::parse_dhcp(udp->payload, udp->payload_len);
                 if (dhcp) {
                     spdlog::debug("DHCP {}: MAC={} hostname={} your_ip={}",
                         netmon::dhcp_msg_type_str(dhcp->msg_type),

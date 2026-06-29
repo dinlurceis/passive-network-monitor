@@ -22,7 +22,7 @@ endif()
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
-# Source files (phase 1)
+# Source files (phase 1 + phase 2)
 set(SOURCES
     src/main.cpp
     src/config/config.cpp
@@ -30,8 +30,11 @@ set(SOURCES
     src/parsers/ethernet_parser.cpp
     src/parsers/arp_parser.cpp
     src/parsers/dhcp_parser.cpp
+    src/parsers/ipv4_parser.cpp             # Phase 2: IPv4/UDP parser
     src/tracker/asset_tracker.cpp
     src/db/db_manager.cpp
+    src/enrichment/oui_lookup.cpp           # Phase 2: vendor lookup
+    src/enrichment/os_fingerprint.cpp      # Phase 2: OS fingerprinting
 )
 
 add_executable(netmon ${SOURCES})

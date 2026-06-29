@@ -24,6 +24,8 @@ public:
     void                 update_asset_last_seen(int id);
     void                 update_asset_ip(int id, const std::string& ip);
     void                 update_asset_hostname(int id, const std::string& hostname);
+    void                 update_asset_vendor(int id, const std::string& vendor);
+    void                 update_asset_os_guess(int id, const std::string& os_guess);
     void                 set_asset_inactive(int id);
 
     // Event

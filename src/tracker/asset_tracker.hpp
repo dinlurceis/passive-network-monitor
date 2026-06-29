@@ -3,6 +3,8 @@
 #include "../parsers/arp_parser.hpp"
 #include "../parsers/dhcp_parser.hpp"
 #include "../db/db_manager.hpp"
+#include "../enrichment/oui_lookup.hpp"
+#include "../enrichment/os_fingerprint.hpp"
 #include <unordered_map>
 #include <mutex>
 #include <vector>
@@ -12,7 +14,8 @@ namespace netmon {
 
 class AssetTracker {
 public:
-    explicit AssetTracker(DbManager& db);
+    // Constructor nhận OuiLookup để tra cứu vendor tên nhà sản xuất từ MAC
+    AssetTracker(DbManager& db, OuiLookup& oui);
 
     // Gọi từ packet callback
     void process_arp(const ArpFrame& frame);
@@ -28,6 +31,7 @@ public:
 
 private:
     DbManager& db_;
+    OuiLookup& oui_;   // tham chiếu đến OUI database dùng chung (không sở hữu)
     std::unordered_map<std::string, Asset> cache_;  // MAC → Asset
     mutable std::mutex mutex_;
 
