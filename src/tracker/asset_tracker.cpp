@@ -7,7 +7,7 @@ namespace netmon {
 
 AssetTracker::AssetTracker(DbManager& db) : db_(db) {}
 
-// ─── upsert_asset ─────────────────────────────────────────────────────────────
+// upsert_asset
 // Caller MUST hold mutex_ before calling this.
 Asset AssetTracker::upsert_asset(const std::string& mac, const std::string& ip) {
     // Check DB first
@@ -37,7 +37,7 @@ Asset AssetTracker::upsert_asset(const std::string& mac, const std::string& ip) 
     }
 }
 
-// ─── log_event ────────────────────────────────────────────────────────────────
+// log_event
 void AssetTracker::log_event(const Asset& asset, const std::string& event_type,
                               const std::string& old_val, const std::string& new_val) {
     db_.insert_event(asset.id, event_type, old_val, new_val);
@@ -45,7 +45,7 @@ void AssetTracker::log_event(const Asset& asset, const std::string& event_type,
                  event_type, asset.mac, asset.ip, old_val, new_val);
 }
 
-// ─── process_arp ─────────────────────────────────────────────────────────────
+// process_arp
 void AssetTracker::process_arp(const ArpFrame& frame) {
     const std::string& mac = frame.sender_mac;
     const std::string& ip  = frame.sender_ip;
@@ -97,7 +97,7 @@ void AssetTracker::process_arp(const ArpFrame& frame) {
     }
 }
 
-// ─── process_dhcp ─────────────────────────────────────────────────────────────
+// process_dhcp
 void AssetTracker::process_dhcp(const DhcpInfo& info) {
     const std::string& mac = info.client_mac;
     if (mac.empty()) return;
@@ -144,7 +144,7 @@ void AssetTracker::process_dhcp(const DhcpInfo& info) {
     }
 }
 
-// ─── expire_assets ────────────────────────────────────────────────────────────
+// expire_assets
 void AssetTracker::expire_assets(int timeout_sec) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto stale = db_.get_assets_not_seen_since(timeout_sec);
@@ -156,7 +156,7 @@ void AssetTracker::expire_assets(int timeout_sec) {
     }
 }
 
-// ─── find_by_mac ─────────────────────────────────────────────────────────────
+// find_by_mac
 std::optional<Asset> AssetTracker::find_by_mac(const std::string& mac) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = cache_.find(mac);
@@ -164,7 +164,7 @@ std::optional<Asset> AssetTracker::find_by_mac(const std::string& mac) const {
     return it->second;
 }
 
-// ─── all_assets ──────────────────────────────────────────────────────────────
+// all_assets
 std::vector<Asset> AssetTracker::all_assets() const {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<Asset> result;
@@ -175,7 +175,7 @@ std::vector<Asset> AssetTracker::all_assets() const {
     return result;
 }
 
-// ─── active_count ────────────────────────────────────────────────────────────
+// active_count
 size_t AssetTracker::active_count() const {
     std::lock_guard<std::mutex> lock(mutex_);
     size_t count = 0;
