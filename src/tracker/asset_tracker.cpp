@@ -5,7 +5,9 @@
 
 namespace netmon {
 
-AssetTracker::AssetTracker(DbManager& db) : db_(db) {}
+// Constructor — nhận cả DbManager lẫn OuiLookup qua tham chiếu
+AssetTracker::AssetTracker(DbManager& db, OuiLookup& oui)
+    : db_(db), oui_(oui) {}
 
 // upsert_asset
 // Caller MUST hold mutex_ before calling this.
@@ -50,12 +52,12 @@ void AssetTracker::process_arp(const ArpFrame& frame) {
     const std::string& mac = frame.sender_mac;
     const std::string& ip  = frame.sender_ip;
 
-    // Ignore null/broadcast MACs
+    // Bỏ qua MAC không hợp lệ (null hoặc broadcast)
     if (mac == "00:00:00:00:00:00" || mac == "FF:FF:FF:FF:FF:FF") {
         return;
     }
 
-    // ARP probe: sender_ip == 0.0.0.0 — log event but don't update IP
+    // ARP probe: sender_ip == 0.0.0.0 — thiết bị đang kiểm tra xem IP có ai dùng chưa
     if (frame.is_probe()) {
         std::lock_guard<std::mutex> lock(mutex_);
         Asset asset = upsert_asset(mac, "");
@@ -67,13 +69,34 @@ void AssetTracker::process_arp(const ArpFrame& frame) {
     auto it = cache_.find(mac);
 
     if (it == cache_.end()) {
-        // New asset
+        // Thiết bị mới — lưu vào DB và gựi OUI lookup
         Asset asset = upsert_asset(mac, ip);
+
+        // Tra cứu vendor ngay khi thấy thiết bị lần đầu
+        std::string vendor = oui_.lookup(mac);
+        if (vendor != "Unknown" && vendor != asset.vendor) {
+            db_.update_asset_vendor(asset.id, vendor);
+            cache_[mac].vendor = vendor;
+            asset.vendor = vendor;
+            spdlog::debug("[OUI] MAC={} vendor={}", mac, vendor);
+        }
+
         log_event(asset, "new_asset", "", ip);
     } else {
         Asset& cached = it->second;
+
+        // Cập nhật vendor nếu chưa có (ví dụ: asset được thấy lần đầu qua DHCP)
+        if (cached.vendor.empty()) {
+            std::string vendor = oui_.lookup(mac);
+            if (vendor != "Unknown") {
+                db_.update_asset_vendor(cached.id, vendor);
+                cached.vendor = vendor;
+                spdlog::debug("[OUI] MAC={} vendor={} (late lookup)", mac, vendor);
+            }
+        }
+
         if (cached.ip != ip && !ip.empty()) {
-            // IP changed
+            // IP thay đổi — cập nhật và ghi event
             std::string old_ip = cached.ip;
             db_.update_asset_ip(cached.id, ip);
             db_.update_asset_last_seen(cached.id);
@@ -82,13 +105,13 @@ void AssetTracker::process_arp(const ArpFrame& frame) {
             cached.ip_changes++;
             log_event(cached, "ip_change", old_ip, ip);
         } else {
-            // Same IP — just update last_seen
+            // Cùng IP — chỉ cập nhật last_seen
             db_.update_asset_last_seen(cached.id);
             cached.last_seen = Clock::now();
         }
     }
 
-    // Gratuitous ARP: log separate event
+    // Gratuitous ARP: thiết bị thông báo IP của mình cho cả mạng
     if (frame.is_gratuitous()) {
         auto it2 = cache_.find(mac);
         if (it2 != cache_.end()) {
@@ -105,14 +128,41 @@ void AssetTracker::process_dhcp(const DhcpInfo& info) {
     std::lock_guard<std::mutex> lock(mutex_);
     Asset asset = upsert_asset(mac, "");
 
-    // Update hostname if present
+    // Tra cứu vendor nếu chưa có (một số thiết bị chỉ xuất hiện qua DHCP)
+    if (cache_[mac].vendor.empty()) {
+        std::string vendor = oui_.lookup(mac);
+        if (vendor != "Unknown") {
+            db_.update_asset_vendor(asset.id, vendor);
+            cache_[mac].vendor = vendor;
+            asset.vendor = vendor;
+        }
+    }
+
+    // Cập nhật hostname nếu có trong DHCP Option 12
     if (!info.hostname.empty() && info.hostname != asset.hostname) {
         db_.update_asset_hostname(asset.id, info.hostname);
         cache_[mac].hostname = info.hostname;
         asset.hostname = info.hostname;
     }
 
-    // Log event and update IP for ACK
+    // OS fingerprinting từ DHCP Option 55 (Parameter Request List)
+    // Chỉ chạy khi có dữ liệu và chưa biết OS
+    if (!info.param_request_list.empty() && cache_[mac].os_guess.empty()) {
+        auto fp = fingerprint_from_dhcp_options(info.param_request_list);
+        if (fp.os_family != "Unknown" && fp.confidence >= 0.5f) {
+            // Lưu cả family và detail: ví dụ "Windows (Windows 10/11)"
+            std::string os_str = fp.detail.empty()
+                ? fp.os_family
+                : std::format("{} ({})", fp.os_family, fp.detail);
+            db_.update_asset_os_guess(asset.id, os_str);
+            cache_[mac].os_guess = os_str;
+            asset.os_guess = os_str;
+            spdlog::info("[OS] MAC={} os_guess='{}' confidence={:.2f}",
+                         mac, os_str, fp.confidence);
+        }
+    }
+
+    // Ghi event theo loại DHCP message
     switch (info.msg_type) {
         case DhcpMsgType::DISCOVER:
             log_event(asset, "dhcp_discover");
@@ -139,7 +189,7 @@ void AssetTracker::process_dhcp(const DhcpInfo& info) {
         }
 
         default:
-            // Other DHCP message types not tracked in Phase 1
+            // Các loại DHCP khác (OFFER, NAK, ...) không cần theo dõi ở Phase 2
             break;
     }
 }

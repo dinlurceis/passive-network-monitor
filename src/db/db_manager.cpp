@@ -170,6 +170,20 @@ void DbManager::update_asset_hostname(int id, const std::string& hostname) {
     txn.commit();
 }
 
+// ─── update_asset_vendor ─────────────────────────────────────────────────────
+void DbManager::update_asset_vendor(int id, const std::string& vendor) {
+    pqxx::work txn(*connection_);
+    txn.exec_params("UPDATE assets SET vendor=NULLIF($2,'') WHERE id=$1", id, vendor);
+    txn.commit();
+}
+
+// ─── update_asset_os_guess ───────────────────────────────────────────────────
+void DbManager::update_asset_os_guess(int id, const std::string& os_guess) {
+    pqxx::work txn(*connection_);
+    txn.exec_params("UPDATE assets SET os_guess=NULLIF($2,'') WHERE id=$1", id, os_guess);
+    txn.commit();
+}
+
 // ─── set_asset_inactive ──────────────────────────────────────────────────────
 void DbManager::set_asset_inactive(int id) {
     pqxx::work txn(*connection_);
