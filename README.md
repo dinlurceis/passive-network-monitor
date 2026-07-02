@@ -40,27 +40,27 @@ Sơ đồ dưới đây mô tả cách các thành phần chính (các file tron
 
 ```mermaid
 graph TD
-    Main[main.cpp] -->|1. Khởi tạo| Config[config/config.cpp]
-    Main -->|2. Khởi tạo| DB[db/db_manager.cpp]
-    Main -->|3. Khởi tạo| OUI[enrichment/oui_lookup.cpp]
-    Main -->|4. Khởi tạo| Tracker[tracker/asset_tracker.cpp]
-    Main -->|5. Khởi tạo & Start| Reader[capture/pcap_reader.cpp]
+    Main["main.cpp"] -->|"1. Khởi tạo"| Config["config/config.cpp"]
+    Main -->|"2. Khởi tạo"| DB["db/db_manager.cpp"]
+    Main -->|"3. Khởi tạo"| OUI["enrichment/oui_lookup.cpp"]
+    Main -->|"4. Khởi tạo"| Tracker["tracker/asset_tracker.cpp"]
+    Main -->|"5. Khởi tạo & Start"| Reader["capture/pcap_reader.cpp"]
     
-    Tracker -->|Truy vấn DB| DB
-    Tracker -->|Tra cứu MAC| OUI
+    Tracker -->|"Truy vấn DB"| DB
+    Tracker -->|"Tra cứu MAC"| OUI
     
-    Reader -->|Truyền RawPacket| Callback{Packet Callback}
+    Reader -->|"Truyền RawPacket"| Callback{"Packet Callback"}
     
-    Callback -->|Dữ liệu thô| Eth[parse_ethernet]
-    Eth -->|Payload| Type{Kiểm tra EtherType}
+    Callback -->|"Dữ liệu thô"| Eth["parse_ethernet"]
+    Eth -->|"Payload"| Type{"Kiểm tra EtherType"}
     
-    Type -- ETHERTYPE_ARP --> ARP[parse_arp]
-    ARP -->|ArpFrame| TrackARP[AssetTracker::process_arp]
+    Type -- ETHERTYPE_ARP --> ARP["parse_arp"]
+    ARP -->|"ArpFrame"| TrackARP["AssetTracker::process_arp"]
     TrackARP --> Tracker
     
-    Type -- ETHERTYPE_IPV4 --> IPv4[parse_ipv4 / parse_udp]
-    IPv4 -->|UDP Payload (Port 67/68)| DHCP[parse_dhcp]
-    DHCP -->|DhcpInfo| TrackDHCP[AssetTracker::process_dhcp]
+    Type -- ETHERTYPE_IPV4 --> IPv4["parse_ipv4 / parse_udp"]
+    IPv4 -->|"UDP Payload (Port 67/68)"| DHCP["parse_dhcp"]
+    DHCP -->|"DhcpInfo"| TrackDHCP["AssetTracker::process_dhcp"]
     TrackDHCP --> Tracker
 ```
 
