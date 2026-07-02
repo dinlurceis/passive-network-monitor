@@ -1,6 +1,13 @@
 # passive-network-monitor
 
-Passive network monitoring system — đọc PCAP file hoặc live interface, phát hiện asset (IP/MAC), parse ARP/DHCP metadata, lưu PostgreSQL, tích hợp ML.
+**Passive Network Monitor** là một hệ thống giám sát mạng thụ động (không can thiệp hoặc làm thay đổi lưu lượng mạng). Hệ thống được thiết kế để theo dõi, quản lý tài sản (assets) trong mạng nội bộ và phát hiện các hành vi bất thường.
+
+## 🌟 Tính năng cốt lõi (Features)
+
+- **Theo dõi tài sản (Asset Tracking)**: Đọc các gói tin từ file PCAP hoặc bắt trực tiếp (live capture) trên interface. Phân tích các giao thức như **ARP**, **DHCP** để tự động phát hiện thiết bị (IP/MAC), hệ điều hành và gán thông tin nhà sản xuất.
+- **Enrichment**: Tự động tra cứu nhà sản xuất phần cứng (Vendor) thông qua cơ sở dữ liệu OUI của IEEE dựa vào địa chỉ MAC.
+- **Lưu trữ chuẩn xác**: Sử dụng **PostgreSQL** làm cơ sở dữ liệu trung tâm, lưu vết vòng đời của từng tài sản và các sự kiện mạng (ví dụ: cấp phát IP mới, đổi IP).
+- **Hỗ trợ đa môi trường**: Trên môi trường Windows (không sử dụng Npcap), hệ thống hỗ trợ đọc và phân tích từ các file offline `.pcap`. Trên môi trường Linux/Docker, hệ thống có thể chạy ở chế độ live capture.
 
 ## Tech Stack
 
@@ -51,7 +58,19 @@ cmake --build build/debug -j$(nproc)
 psql -h localhost -U netmon -d netmon -f scripts/init_db.sql
 ```
 
-### 4. Run với PCAP file
+### 4. Download OUI Database (Phase 2)
+
+Cơ sở dữ liệu MAC vendor (OUI) được yêu cầu cho chức năng Enrichment.
+
+```bash
+# Trên Linux / WSL / Git Bash:
+bash scripts/download_oui.sh
+
+# Trên Windows (Powershell/CMD):
+python scripts/download_oui.py
+```
+
+### 5. Run với PCAP file
 
 ```bash
 PCAP_FILE=samples/test.pcap \
@@ -59,7 +78,7 @@ DB_HOST=localhost DB_USER=netmon DB_PASSWORD=secret DB_NAME=netmon \
 ./build/debug/netmon
 ```
 
-### 5. Run tests
+### 6. Run tests
 
 ```bash
 cd build/debug && ctest --output-on-failure
@@ -84,9 +103,9 @@ cd build/debug && ctest --output-on-failure
 ## Project Phases
 
 - **Phase 1** ✅: Core engine — PCAP reader, ARP/DHCP parser, PostgreSQL storage
-- **Phase 2**: Enrichment — OUI vendor lookup, OS fingerprinting, CLI query interface
+- **Phase 2** ✅ : Enrichment — OUI vendor lookup, OS fingerprinting
 - **Phase 3**: ML — Isolation Forest anomaly detection via ONNX Runtime
-- **Phase 4**: Docker + REST API
+- **Phase 4** ✅ : Docker + REST API
 
 ## Verify Results
 
