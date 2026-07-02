@@ -9,6 +9,31 @@
 - **Lưu trữ chuẩn xác**: Sử dụng **PostgreSQL** làm cơ sở dữ liệu trung tâm, lưu vết vòng đời của từng tài sản và các sự kiện mạng (ví dụ: cấp phát IP mới, đổi IP).
 - **Hỗ trợ đa môi trường**: Trên môi trường Windows (không sử dụng Npcap), hệ thống hỗ trợ đọc và phân tích từ các file offline `.pcap`. Trên môi trường Linux/Docker, hệ thống có thể chạy ở chế độ live capture.
 
+## 📂 Cấu trúc thư mục (Directory Structure)
+
+```text
+passive-network-monitor/
+├── CMakeLists.txt        # File cấu hình build chính
+├── docker-compose.yml    # Cấu hình deploy Docker 
+├── Dockerfile            # Định nghĩa image Docker
+├── .env.example          # Mẫu biến môi trường
+├── data/                 # Chứa dữ liệu enrich (như oui.csv)
+├── docs/                 # Tài liệu thiết kế
+├── models/               # Chứa model AI (cập nhật sau)
+├── samples/              # Nơi chứa các file .pcap để test
+├── scripts/              # Chứa các script tiện ích (init_db, download_oui...)
+├── src/                  # Mã nguồn chính của dự án (C++)
+│   ├── api/              # Module REST API (Phase 4)
+│   ├── capture/          # Module đọc và xử lý gói tin (pcap_reader)
+│   ├── config/           # Cấu hình hệ thống (load từ biến môi trường)
+│   ├── db/               # Giao tiếp với PostgreSQL (DbManager)
+│   ├── enrichment/       # Phân tích MAC/OS fingerprinting
+│   ├── ml/               # Machine Learning & Phát hiện bất thường
+│   ├── parsers/          # Trình phân tích giao thức (Ethernet, ARP, DHCP)
+│   └── tracker/          # Module theo dõi tài sản và trạng thái
+└── tests/                # Unit test (GoogleTest)
+```
+
 ## Tech Stack
 
 - **Language**: C++20
