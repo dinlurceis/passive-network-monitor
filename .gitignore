@@ -35,8 +35,9 @@ netsentinel
 *.pcapng
 tests/fixtures/*.pcap
 
-# Agents
+# Agents + md files
 AGENTS.md
+slides_content.md
 
 *.log
 *.pcap

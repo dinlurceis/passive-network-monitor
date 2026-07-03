@@ -1,0 +1,13 @@
+.git
+.gitignore
+build/
+samples/
+models/
+docs/
+data/oui_raw.csv
+*.pcap
+*.pcapng
+.vscode/
+.idea/
+*.md
+.env

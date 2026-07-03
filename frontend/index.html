@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetMon Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-mesh"></div>
+    
+    <header class="header">
+        <div class="logo">
+            <div class="pulse-indicator"></div>
+            <h1>NetMon</h1>
+            <span class="badge">Live</span>
+        </div>
+        <div class="time-display" id="time-display">--:--:--</div>
+    </header>
+
+    <main class="container">
+        <!-- Stats Row -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon total"></div>
+                <div class="stat-info">
+                    <p class="stat-label">Total Assets</p>
+                    <h2 class="stat-value" id="stat-total">0</h2>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon active"></div>
+                <div class="stat-info">
+                    <p class="stat-label">Active Devices</p>
+                    <h2 class="stat-value" id="stat-active">0</h2>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon system"></div>
+                <div class="stat-info">
+                    <p class="stat-label">System Status</p>
+                    <h2 class="stat-value status-ok" id="stat-system">OK</h2>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Table -->
+        <section class="table-section">
+            <div class="table-header">
+                <h2>Network Assets</h2>
+                <div class="controls">
+                    <input type="text" id="search-input" class="search-input" placeholder="Search MAC, IP, Hostname...">
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table id="assets-table">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>MAC Address</th>
+                            <th>IP Address</th>
+                            <th>Hostname</th>
+                            <th>Vendor</th>
+                            <th>OS Guess</th>
+                            <th>Last Seen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Rows will be injected here by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
