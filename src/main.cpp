@@ -9,20 +9,25 @@
 #include "tracker/asset_tracker.hpp"
 #include "db/db_manager.hpp"
 #include "enrichment/oui_lookup.hpp"      // Phase 2: tra cứu vendor từ MAC
+#include "api/rest_server.hpp"            // Phase 4: REST API Server
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <csignal>
 #include <atomic>
 #include <memory>
+#include <thread>
+#include <chrono>
 
 // Global để signal handler có thể dừng reader
 static std::unique_ptr<netmon::PcapReader> g_reader;
+static std::unique_ptr<netmon::RestServer> g_api_server;
 static std::atomic<bool> g_running{true};
 
 void signal_handler(int sig) {
     spdlog::info("Signal {} received, stopping...", sig);
     g_running = false;
     if (g_reader) g_reader->stop();
+    if (g_api_server) g_api_server->stop();
 }
 
 int main(int argc, char* argv[]) {
@@ -84,6 +89,10 @@ int main(int argc, char* argv[]) {
         // Init tracker (truyền oui để enrich vendor info)
         netmon::AssetTracker tracker(db, oui);
 
+        // Init REST API Server
+        g_api_server = std::make_unique<netmon::RestServer>(db, tracker, cfg.api_port);
+        g_api_server->start();
+
         // Init PCAP reader
         g_reader = std::make_unique<netmon::PcapReader>(source, live);
 
@@ -143,8 +152,13 @@ int main(int argc, char* argv[]) {
         // Log summary
         auto assets = tracker.all_assets();
         spdlog::info("Total unique assets seen: {}", assets.size());
-        for (const auto& a : assets) {
-            spdlog::info("  MAC={} IP={} hostname='{}'", a.mac, a.ip, a.hostname);
+        
+        // Giữ chương trình sống để phục vụ Web UI sau khi đọc xong file PCAP
+        if (!live) {
+            spdlog::info("Offline capture complete. Web UI is still running at port {}. Press Ctrl+C to exit.", cfg.api_port);
+            while (g_running) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
         }
 
     } catch (const std::exception& e) {

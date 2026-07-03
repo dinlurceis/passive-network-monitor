@@ -21,6 +21,7 @@ endif()
 
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(Threads REQUIRED)
 
 # Source files (phase 1 + phase 2)
 set(SOURCES
@@ -35,6 +36,7 @@ set(SOURCES
     src/db/db_manager.cpp
     src/enrichment/oui_lookup.cpp           # Phase 2: vendor lookup
     src/enrichment/os_fingerprint.cpp      # Phase 2: OS fingerprinting
+    src/api/rest_server.cpp                # Phase 4: REST API Server
 )
 
 add_executable(netmon ${SOURCES})
@@ -51,6 +53,7 @@ target_link_libraries(netmon PRIVATE
     PostgreSQL::PostgreSQL
     spdlog::spdlog
     nlohmann_json::nlohmann_json
+    Threads::Threads
 )
 
 # Tests

@@ -3,7 +3,7 @@
 #include <string>
 #include <optional>
 
-namespace netmon {
+namespace pnads {
 
 // ARP opcodes
 constexpr uint16_t ARP_REQUEST     = 1;
@@ -19,18 +19,14 @@ struct ArpFrame {
     std::string target_ip;
 
     // Derived helpers
-    bool is_request()      const { return opcode == ARP_REQUEST; }
-    bool is_reply()        const { return opcode == ARP_REPLY; }
-    bool is_gratuitous()   const {
-        return is_reply() && sender_ip == target_ip;
-    }
-    bool is_probe()        const {
-        return is_request() && sender_ip == "0.0.0.0";
-    }
+    bool is_request()    const { return opcode == ARP_REQUEST; }
+    bool is_reply()      const { return opcode == ARP_REPLY; }
+    bool is_gratuitous() const { return is_reply() && sender_ip == target_ip; }
+    bool is_probe()      const { return is_request() && sender_ip == "0.0.0.0"; }
 };
 
 // Parse ARP payload (sau Ethernet header).
 // data trỏ vào phần payload của EthernetFrame.
 std::optional<ArpFrame> parse_arp(const uint8_t* data, size_t len);
 
-} // namespace netmon
+} // namespace pnads

@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: netmon_db
     environment:
       POSTGRES_USER: netmon
@@ -12,10 +12,10 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U netmon -d netmon"]
+      test: [ "CMD-SHELL", "pg_isready -U netmon -d netmon" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -35,23 +35,37 @@ services:
   netmon_app:
     build:
       context: .
-      dockerfile: Dockerfile.build
+      dockerfile: Dockerfile
     container_name: netmon_app
+    restart: unless-stopped
     environment:
       - DB_HOST=postgres
+      # - DB_HOST=localhost
       - DB_PORT=5432
       - DB_NAME=netmon
       - DB_USER=netmon
       - DB_PASSWORD=secret
-      - PCAP_FILE=samples/test.pcap
+      - PCAP_FILE=/samples/test.pcap
       - LOG_LEVEL=debug
+      - API_PORT=8080
+      - OUI_FILE=/app/data/oui.csv
     volumes:
-      - ./samples:/app/samples
+      - ./samples:/samples:ro
+      - ./data:/app/data:ro
+    ports:
+      - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
-    # Override CMD từ ctest (trong Dockerfile.build) sang chạy app chính
-    command: ["./build/debug/netmon"]
+    command: ["--pcap", "/samples/realistic_100_devices.pcap"]
+    # # Bắt buộc phải có 2 dòng này để Docker cho phép truy cập card mạng thật
+    # network_mode: host
+    # cap_add:
+    #   - NET_RAW
+    #   - NET_ADMIN
+    # # ...
+    # # Chạy chế độ iface thay vì pcap:
+    # command: [ "--iface", "eth0" ]
 
 volumes:
   postgres_data:

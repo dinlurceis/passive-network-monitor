@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PNADS Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1/dist/chartjs-adapter-moment.min.js"></script>
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar glass">
+            <div class="logo">
+                <i class="fa-solid fa-network-wired"></i>
+                <span>PNADS</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fa-solid fa-chart-pie"></i> Dashboard
+                </a>
+                <a href="#" class="nav-item" data-page="assets">
+                    <i class="fa-solid fa-laptop-code"></i> Assets
+                </a>
+                <a href="#" class="nav-item" data-page="alerts">
+                    <i class="fa-solid fa-bell"></i> Alerts <span class="badge" id="alert-badge" style="display:none;">0</span>
+                </a>
+                <a href="#" class="nav-item" data-page="watchlist">
+                    <i class="fa-solid fa-eye"></i> Watchlist
+                </a>
+            </nav>
+            <div class="status-indicator">
+                <div class="status-dot healthy" id="api-status-dot"></div>
+                <span id="api-status-text">Connecting...</span>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar glass">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="topbar-actions">
+                    <button class="btn btn-icon" onclick="refreshCurrentPage()" title="Refresh data">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="page-container" id="page-container">
+                <!-- Content will be injected here via JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal-overlay" id="timeline-modal">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h2 id="timeline-title">Asset Timeline</h2>
+                <button class="btn btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="timeline-content">
+                <!-- Timeline events injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
