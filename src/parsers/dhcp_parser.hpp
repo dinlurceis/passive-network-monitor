@@ -5,7 +5,7 @@
 #include <map>
 #include <optional>
 
-namespace netmon {
+namespace pnads {
 
 // DHCP message types (option 53)
 enum class DhcpMsgType : uint8_t {
@@ -23,16 +23,16 @@ enum class DhcpMsgType : uint8_t {
 std::string dhcp_msg_type_str(DhcpMsgType t);
 
 struct DhcpInfo {
-    DhcpMsgType                  msg_type = DhcpMsgType::UNKNOWN;
-    std::string                  client_mac;       // từ chaddr field
-    std::string                  client_ip;        // ciaddr (nếu có)
-    std::string                  your_ip;          // yiaddr (IP server cấp)
-    std::string                  server_ip;        // siaddr
-    std::string                  hostname;         // option 12
-    std::string                  requested_ip;     // option 50
-    std::vector<uint8_t>         param_request_list; // option 55 (OS fingerprint)
-    std::map<uint8_t, std::vector<uint8_t>> options; // tất cả options raw
-    bool                         is_from_server = false; // OFFER hoặc ACK
+    DhcpMsgType                         msg_type = DhcpMsgType::UNKNOWN;
+    std::string                         client_mac;       // từ chaddr field
+    std::string                         client_ip;        // ciaddr (nếu có)
+    std::string                         your_ip;          // yiaddr (IP server cấp)
+    std::string                         server_ip;        // siaddr
+    std::string                         hostname;         // option 12
+    std::string                         requested_ip;     // option 50
+    std::vector<uint8_t>                param_request_list; // option 55 (OS fingerprint)
+    std::map<uint8_t, std::vector<uint8_t>> options;     // tất cả options raw
+    bool                                is_from_server = false; // OFFER hoặc ACK
 };
 
 // Parse UDP payload của DHCP packet.
@@ -44,4 +44,4 @@ constexpr uint16_t DHCP_SERVER_PORT = 67;
 constexpr uint16_t DHCP_CLIENT_PORT = 68;
 constexpr uint32_t DHCP_MAGIC_COOKIE = 0x63825363;
 
-} // namespace netmon
+} // namespace pnads

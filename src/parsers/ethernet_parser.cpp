@@ -3,7 +3,7 @@
 #include <format>
 #include <optional>
 
-namespace netmon {
+namespace pnads {
 
 std::optional<EthernetFrame> parse_ethernet(const uint8_t* data, size_t len) {
     // Minimum: 6 (dst) + 6 (src) + 2 (ethertype) = 14 bytes
@@ -68,4 +68,4 @@ bool string_to_mac(const std::string& s, std::array<uint8_t, ETH_ADDR_LEN>& out)
     return true;
 }
 
-} // namespace netmon
+} // namespace pnads

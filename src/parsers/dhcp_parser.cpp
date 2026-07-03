@@ -1,36 +1,18 @@
 #include "dhcp_parser.hpp"
+#include "util/binary_reader.hpp"
 #include <format>
-#include <cstring>
 
-namespace netmon {
+namespace pnads {
 
-// DHCP packet structure:
-// Offset  Size  Field
-//  0       1    op       (1=BOOTREQUEST, 2=BOOTREPLY)
-//  1       1    htype    (1=Ethernet)
-//  2       1    hlen     (6 for MAC)
-//  3       1    hops
-//  4       4    xid      (transaction ID)
-//  8       2    secs
-// 10       2    flags
-// 12       4    ciaddr   (client IP address)
-// 16       4    yiaddr   (your IP address — server gives to client)
-// 20       4    siaddr   (server IP)
-// 24       4    giaddr   (relay agent IP)
-// 28      16    chaddr   (client hardware address, first 6 bytes = MAC)
-// 44      64    sname    (server hostname)
-//108     128    file     (boot filename)
-//236       4    magic cookie (0x63825363)
-//240      ..    options  (TLV format)
+// DHCP fixed header offsets (all before magic cookie at 236):
+// op(1) htype(1) hlen(1) hops(1) xid(4) secs(2) flags(2)
+// ciaddr(4) yiaddr(4) siaddr(4) giaddr(4) chaddr(16)
+// sname(64) file(128) → total 236 bytes before magic cookie
 
-constexpr size_t DHCP_MIN_LEN     = 240;  // header up to magic cookie
+constexpr size_t DHCP_MIN_LEN     = 240;  // up to and including magic cookie
 constexpr size_t DHCP_OPTIONS_OFF = 240;
 
-static std::string ip_bytes_to_string(const uint8_t* b) {
-    return std::format("{}.{}.{}.{}", b[0], b[1], b[2], b[3]);
-}
-
-static std::string mac_bytes_to_string(const uint8_t* b) {
+static std::string mac_bytes_to_str(const uint8_t* b) {
     return std::format("{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
         b[0], b[1], b[2], b[3], b[4], b[5]);
 }
@@ -50,102 +32,93 @@ std::string dhcp_msg_type_str(DhcpMsgType t) {
 }
 
 std::optional<DhcpInfo> parse_dhcp(const uint8_t* data, size_t len) {
-    // Need at least the fixed header + magic cookie
-    if (len < DHCP_MIN_LEN) {
-        return std::nullopt;
-    }
+    if (len < DHCP_MIN_LEN) return std::nullopt;
 
     // Validate magic cookie at offset 236
-    uint32_t cookie = (static_cast<uint32_t>(data[236]) << 24) |
-                      (static_cast<uint32_t>(data[237]) << 16) |
-                      (static_cast<uint32_t>(data[238]) << 8)  |
-                       static_cast<uint32_t>(data[239]);
-    if (cookie != DHCP_MAGIC_COOKIE) {
-        return std::nullopt;
-    }
+    BinaryReader mc(data + 236, 4);
+    auto cookie = mc.read_u32();
+    if (!cookie || *cookie != DHCP_MAGIC_COOKIE) return std::nullopt;
 
     DhcpInfo info{};
 
     // op field: 1=BOOTREQUEST, 2=BOOTREPLY
-    uint8_t op = data[0];
-    info.is_from_server = (op == 2);
+    info.is_from_server = (data[0] == 2);
 
-    // IP addresses
-    // ciaddr (client IP — set if client has valid IP, else 0.0.0.0)
-    if (data[12] || data[13] || data[14] || data[15]) {
-        info.client_ip = ip_bytes_to_string(data + 12);
-    }
-    // yiaddr (your IP — server-assigned)
-    if (data[16] || data[17] || data[18] || data[19]) {
-        info.your_ip = ip_bytes_to_string(data + 16);
-    }
-    // siaddr (next server IP)
-    if (data[20] || data[21] || data[22] || data[23]) {
-        info.server_ip = ip_bytes_to_string(data + 20);
-    }
-
-    // chaddr: client hardware address (MAC = first 6 bytes of 16-byte field at offset 28)
-    // htype=1, hlen=6 → first 6 bytes are MAC
+    // htype=1 (Ethernet), hlen=6 (MAC)
     if (data[1] == 1 && data[2] == 6) {
-        info.client_mac = mac_bytes_to_string(data + 28);
+        info.client_mac = mac_bytes_to_str(data + 28);
     }
 
-    // Parse options (TLV after magic cookie at offset 240)
-    size_t pos = DHCP_OPTIONS_OFF;
-    while (pos < len) {
-        uint8_t code = data[pos++];
+    // ciaddr (client IP, offset 12)
+    if (data[12] || data[13] || data[14] || data[15]) {
+        BinaryReader r(data + 12, 4);
+        auto s = r.read_ipv4_str();
+        if (s) info.client_ip = *s;
+    }
+    // yiaddr (your IP, offset 16)
+    if (data[16] || data[17] || data[18] || data[19]) {
+        BinaryReader r(data + 16, 4);
+        auto s = r.read_ipv4_str();
+        if (s) info.your_ip = *s;
+    }
+    // siaddr (server IP, offset 20)
+    if (data[20] || data[21] || data[22] || data[23]) {
+        BinaryReader r(data + 20, 4);
+        auto s = r.read_ipv4_str();
+        if (s) info.server_ip = *s;
+    }
 
-        if (code == 255) {  // END option
-            break;
-        }
-        if (code == 0) {    // PAD option (no length byte)
-            continue;
-        }
+    // Parse options (TLV after magic cookie)
+    BinaryReader r(data + DHCP_OPTIONS_OFF, len - DHCP_OPTIONS_OFF);
+    while (r.remaining() > 0) {
+        auto code_opt = r.read_u8();
+        if (!code_opt) break;
+        uint8_t code = *code_opt;
 
-        // Need at least 1 more byte for length
-        if (pos >= len) break;
-        uint8_t opt_len = data[pos++];
+        if (code == 255) break;  // END
+        if (code == 0)  continue; // PAD
 
-        // Need opt_len more bytes
-        if (pos + opt_len > len) break;
+        auto len_opt = r.read_u8();
+        if (!len_opt) break;
+        uint8_t opt_len = *len_opt;
 
-        // Store raw option
-        std::vector<uint8_t> opt_val(data + pos, data + pos + opt_len);
+        auto bytes = r.read_bytes(opt_len);
+        if (!bytes) break;
+
+        std::vector<uint8_t> opt_val(bytes->begin(), bytes->end());
         info.options[code] = opt_val;
 
-        // Process known options
         switch (code) {
             case 53:  // DHCP Message Type
-                if (opt_len >= 1) {
-                    uint8_t mt = data[pos];
-                    if (mt >= 1 && mt <= 8) {
+                if (!opt_val.empty()) {
+                    uint8_t mt = opt_val[0];
+                    if (mt >= 1 && mt <= 8)
                         info.msg_type = static_cast<DhcpMsgType>(mt);
-                    }
                 }
                 break;
 
             case 12:  // Host Name
-                info.hostname = std::string(reinterpret_cast<const char*>(data + pos), opt_len);
+                info.hostname = std::string(opt_val.begin(), opt_val.end());
                 break;
 
             case 50:  // Requested IP Address
-                if (opt_len == 4) {
-                    info.requested_ip = ip_bytes_to_string(data + pos);
+                if (opt_val.size() == 4) {
+                    BinaryReader ip_r(opt_val.data(), 4);
+                    auto ip = ip_r.read_ipv4_str();
+                    if (ip) info.requested_ip = *ip;
                 }
                 break;
 
-            case 55:  // Parameter Request List (OS fingerprint)
-                info.param_request_list.assign(data + pos, data + pos + opt_len);
+            case 55:  // Parameter Request List
+                info.param_request_list = opt_val;
                 break;
 
             default:
                 break;
         }
-
-        pos += opt_len;
     }
 
     return info;
 }
 
-} // namespace netmon
+} // namespace pnads

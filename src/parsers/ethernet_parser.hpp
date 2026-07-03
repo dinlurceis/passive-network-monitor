@@ -5,7 +5,7 @@
 #include <array>
 #include <string>
 
-namespace netmon {
+namespace pnads {
 
 // EtherType constants
 constexpr uint16_t ETHERTYPE_ARP  = 0x0806;
@@ -19,9 +19,9 @@ constexpr size_t ETH_ADDR_LEN     = 6;
 struct EthernetFrame {
     std::array<uint8_t, ETH_ADDR_LEN> dst_mac;
     std::array<uint8_t, ETH_ADDR_LEN> src_mac;
-    uint16_t ethertype;
-    const uint8_t* payload;     // pointer vào buffer gốc (không copy)
-    size_t payload_len;
+    uint16_t      ethertype;
+    const uint8_t* payload;       // pointer vào buffer gốc (không copy)
+    size_t         payload_len;
 };
 
 // Parse Ethernet II frame. Trả về nullopt nếu data quá ngắn.
@@ -34,4 +34,4 @@ std::string mac_to_string(const std::array<uint8_t, ETH_ADDR_LEN>& mac);
 // Chuyển string "AA:BB:CC:DD:EE:FF" thành array (trả false nếu format sai)
 bool string_to_mac(const std::string& s, std::array<uint8_t, ETH_ADDR_LEN>& out);
 
-} // namespace netmon
+} // namespace pnads
