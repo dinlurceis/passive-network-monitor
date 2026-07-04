@@ -1,47 +1,65 @@
 #pragma once
-#include "asset.hpp"
-#include "../parsers/arp_parser.hpp"
-#include "../parsers/dhcp_parser.hpp"
-#include "../db/db_manager.hpp"
-#include "../enrichment/oui_lookup.hpp"
-#include "../enrichment/os_fingerprint.hpp"
+#include "tracker/asset.hpp"
+#include "parsers/arp_parser.hpp"
+#include "parsers/dhcp_parser.hpp"
+#include "parsers/mdns_parser.hpp"
+#include "parsers/ssdp_parser.hpp"
+#include "parsers/dns_message.hpp"
+#include "parsers/http_parser.hpp"
+#include "db/db_manager.hpp"
+#include "enrichment/oui_lookup.hpp"
+#include "enrichment/os_fingerprint.hpp"
 #include <unordered_map>
-#include <mutex>
-#include <vector>
-#include <optional>
+#include <functional>
 
-namespace netmon {
+namespace pnads {
 
+// Callback khi có event mới ghi vào DB — dùng để detection engine (Phase 3)
+// xử lý ngay trong cùng thread, không cần polling/queue.
+using EventCallback = std::function<void(const Asset&, const std::string& event_type,
+                                          const std::string& protocol,
+                                          const std::string& detail_json)>;
+
+// AssetTracker — chỉ được gọi từ capture thread duy nhất.
+// Không có mutex: REST API đọc trực tiếp từ PostgreSQL qua DbManager.
 class AssetTracker {
 public:
-    // Constructor nhận OuiLookup để tra cứu vendor tên nhà sản xuất từ MAC
-    AssetTracker(DbManager& db, OuiLookup& oui);
+    AssetTracker(DbManager& db, OuiLookup& oui, OsFingerprint& fp);
 
-    // Gọi từ packet callback
+    // Protocol handlers — gọi từ packet callback
     void process_arp(const ArpFrame& frame);
     void process_dhcp(const DhcpInfo& info);
+    void process_mdns(const MdnsRecord& rec);
+    void process_ssdp(const SsdpMessage& msg, const std::string& mac_hint = "");
+    void process_dns(const DnsMessage& msg, const std::string& src_ip);
+    void process_http_ua(const std::string& src_ip, const std::string& user_agent);
 
     // Đánh dấu asset không còn active nếu quá timeout
     void expire_assets(int timeout_sec);
 
-    // Query in-memory cache
-    std::optional<Asset> find_by_mac(const std::string& mac) const;
-    std::vector<Asset>   all_assets() const;
-    size_t               active_count() const;
+    // Detection engine callback — gọi sau mỗi event
+    void set_event_callback(EventCallback cb) { on_event_ = std::move(cb); }
 
 private:
-    DbManager& db_;
-    OuiLookup& oui_;   // tham chiếu đến OUI database dùng chung (không sở hữu)
+    DbManager&     db_;
+    OuiLookup&     oui_;
+    OsFingerprint& fp_;
+    EventCallback  on_event_;
+
+    // cache chỉ đọc/ghi bởi capture thread — an toàn không cần mutex
     std::unordered_map<std::string, Asset> cache_;  // MAC → Asset
-    mutable std::mutex mutex_;
 
-    // Upsert asset vào DB và cache. Trả về asset đã lưu.
-    // Caller phải giữ mutex_ trước khi gọi.
-    Asset upsert_asset(const std::string& mac, const std::string& ip = "");
+    // Upsert asset và trả về reference vào cache (không bao giờ null sau call)
+    Asset& upsert_asset(const std::string& mac, const std::string& ip,
+                         const std::string& source_protocol);
 
-    void log_event(const Asset& asset, const std::string& event_type,
-                   const std::string& old_val = "",
-                   const std::string& new_val = "");
+    void log_event(const Asset& a, const std::string& type,
+                   const std::string& protocol,
+                   const std::string& old_v = "", const std::string& new_v = "",
+                   const std::string& detail_json = "{}");
+
+    // Chạy OUI + OsFingerprint sau khi có tín hiệu mới
+    void refresh_enrichment(Asset& a, const FingerprintSignals& signals);
 };
 
-} // namespace netmon
+} // namespace pnads

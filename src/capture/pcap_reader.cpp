@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <format>
 
-namespace netmon {
+namespace pnads {
 
 // Static dispatch callback for pcap_loop
 static void pcap_dispatch_cb(uint8_t* user,
@@ -89,4 +89,4 @@ void PcapReader::stop() {
     }
 }
 
-} // namespace netmon
+} // namespace pnads

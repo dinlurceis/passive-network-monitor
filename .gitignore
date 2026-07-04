@@ -37,6 +37,7 @@ tests/fixtures/*.pcap
 
 # Agents + md files
 AGENTS.md
+AGENTS_NEWEST.md
 slides_content.md
 
 *.log

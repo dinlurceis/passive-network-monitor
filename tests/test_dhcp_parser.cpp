@@ -51,13 +51,13 @@ static const std::array<uint8_t, 4> TEST_IP  = {192, 168, 1, 100};
 TEST(DhcpParser, TooShort) {
     uint8_t buf[100] = {0};
     // Không có magic cookie → nullopt
-    auto r = netmon::parse_dhcp(buf, sizeof(buf));
+    auto r = pnads::parse_dhcp(buf, sizeof(buf));
     EXPECT_FALSE(r.has_value());
 }
 
 TEST(DhcpParser, EmptyPacket) {
     std::vector<uint8_t> empty;
-    auto r = netmon::parse_dhcp(empty.data(), empty.size());
+    auto r = pnads::parse_dhcp(empty.data(), empty.size());
     EXPECT_FALSE(r.has_value());
 }
 
@@ -65,7 +65,7 @@ TEST(DhcpParser, InvalidMagicCookie) {
     std::vector<uint8_t> pkt(250, 0);
     // Wrong magic cookie
     pkt[236] = 0x00; pkt[237] = 0x00; pkt[238] = 0x00; pkt[239] = 0x00;
-    auto r = netmon::parse_dhcp(pkt.data(), pkt.size());
+    auto r = pnads::parse_dhcp(pkt.data(), pkt.size());
     EXPECT_FALSE(r.has_value());
 }
 
@@ -80,9 +80,9 @@ TEST(DhcpParser, ParseDiscover) {
         {55, opt55_val}
     });
 
-    auto r = netmon::parse_dhcp(pkt.data(), pkt.size());
+    auto r = pnads::parse_dhcp(pkt.data(), pkt.size());
     ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(r->msg_type, netmon::DhcpMsgType::DISCOVER);
+    EXPECT_EQ(r->msg_type, pnads::DhcpMsgType::DISCOVER);
     EXPECT_EQ(r->client_mac, "AA:BB:CC:DD:EE:FF");
     EXPECT_FALSE(r->param_request_list.empty());
     EXPECT_EQ(r->param_request_list.size(), 5u);
@@ -103,9 +103,9 @@ TEST(DhcpParser, ParseAckWithHostname) {
         {12, opt12_val}
     });
 
-    auto r = netmon::parse_dhcp(pkt.data(), pkt.size());
+    auto r = pnads::parse_dhcp(pkt.data(), pkt.size());
     ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(r->msg_type, netmon::DhcpMsgType::ACK);
+    EXPECT_EQ(r->msg_type, pnads::DhcpMsgType::ACK);
     EXPECT_EQ(r->hostname, "my-laptop");
     EXPECT_EQ(r->your_ip, "192.168.1.100");
     EXPECT_TRUE(r->is_from_server);
@@ -121,9 +121,9 @@ TEST(DhcpParser, ParseRequest) {
         {50, opt50_val}
     });
 
-    auto r = netmon::parse_dhcp(pkt.data(), pkt.size());
+    auto r = pnads::parse_dhcp(pkt.data(), pkt.size());
     ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(r->msg_type, netmon::DhcpMsgType::REQUEST);
+    EXPECT_EQ(r->msg_type, pnads::DhcpMsgType::REQUEST);
     EXPECT_EQ(r->requested_ip, "192.168.1.50");
 }
 
@@ -135,18 +135,18 @@ TEST(DhcpParser, ParseOffer) {
         {53, opt53_val}
     });
 
-    auto r = netmon::parse_dhcp(pkt.data(), pkt.size());
+    auto r = pnads::parse_dhcp(pkt.data(), pkt.size());
     ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(r->msg_type, netmon::DhcpMsgType::OFFER);
+    EXPECT_EQ(r->msg_type, pnads::DhcpMsgType::OFFER);
     EXPECT_EQ(r->your_ip, "10.0.0.5");
     EXPECT_TRUE(r->is_from_server);
 }
 
 TEST(DhcpParser, MsgTypeString) {
-    EXPECT_EQ(netmon::dhcp_msg_type_str(netmon::DhcpMsgType::DISCOVER), "dhcp_discover");
-    EXPECT_EQ(netmon::dhcp_msg_type_str(netmon::DhcpMsgType::ACK),      "dhcp_ack");
-    EXPECT_EQ(netmon::dhcp_msg_type_str(netmon::DhcpMsgType::REQUEST),  "dhcp_request");
-    EXPECT_EQ(netmon::dhcp_msg_type_str(netmon::DhcpMsgType::OFFER),    "dhcp_offer");
+    EXPECT_EQ(pnads::dhcp_msg_type_str(pnads::DhcpMsgType::DISCOVER), "dhcp_discover");
+    EXPECT_EQ(pnads::dhcp_msg_type_str(pnads::DhcpMsgType::ACK),      "dhcp_ack");
+    EXPECT_EQ(pnads::dhcp_msg_type_str(pnads::DhcpMsgType::REQUEST),  "dhcp_request");
+    EXPECT_EQ(pnads::dhcp_msg_type_str(pnads::DhcpMsgType::OFFER),    "dhcp_offer");
 }
 
 TEST(DhcpParser, OptionsStored) {
@@ -159,7 +159,7 @@ TEST(DhcpParser, OptionsStored) {
         {55, opt55_val}
     });
 
-    auto r = netmon::parse_dhcp(pkt.data(), pkt.size());
+    auto r = pnads::parse_dhcp(pkt.data(), pkt.size());
     ASSERT_TRUE(r.has_value());
     EXPECT_TRUE(r->options.count(53) > 0);
     EXPECT_TRUE(r->options.count(55) > 0);
@@ -168,7 +168,7 @@ TEST(DhcpParser, OptionsStored) {
 TEST(DhcpParser, NoMsgType) {
     // Packet without option 53 → msg_type should be UNKNOWN
     auto pkt = make_dhcp_packet(1, TEST_MAC, ZERO_IP, ZERO_IP, {});
-    auto r = netmon::parse_dhcp(pkt.data(), pkt.size());
+    auto r = pnads::parse_dhcp(pkt.data(), pkt.size());
     ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(r->msg_type, netmon::DhcpMsgType::UNKNOWN);
+    EXPECT_EQ(r->msg_type, pnads::DhcpMsgType::UNKNOWN);
 }

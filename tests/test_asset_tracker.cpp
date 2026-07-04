@@ -26,7 +26,7 @@ TEST(AssetTrackerDataFlow, ArpReplyProducesCorrectFields) {
         0x0A,0x00,0x00,0x02
     };
 
-    auto frame = netmon::parse_arp(ARP_REPLY, sizeof(ARP_REPLY));
+    auto frame = pnads::parse_arp(ARP_REPLY, sizeof(ARP_REPLY));
     ASSERT_TRUE(frame.has_value());
 
     // Check fields that asset_tracker::process_arp() uses
@@ -49,7 +49,7 @@ TEST(AssetTrackerDataFlow, ArpProbeNotTriggerNewAsset) {
         0x0A,0x00,0x00,0x64
     };
 
-    auto frame = netmon::parse_arp(ARP_PROBE, sizeof(ARP_PROBE));
+    auto frame = pnads::parse_arp(ARP_PROBE, sizeof(ARP_PROBE));
     ASSERT_TRUE(frame.has_value());
     EXPECT_TRUE(frame->is_probe());
     EXPECT_EQ(frame->sender_ip, "0.0.0.0");
@@ -66,7 +66,7 @@ TEST(AssetTrackerDataFlow, GratuitousArpDetected) {
         0xC0,0xA8,0x01,0x01   // target IP = same as sender
     };
 
-    auto frame = netmon::parse_arp(GARP, sizeof(GARP));
+    auto frame = pnads::parse_arp(GARP, sizeof(GARP));
     ASSERT_TRUE(frame.has_value());
     EXPECT_TRUE(frame->is_gratuitous());
     EXPECT_FALSE(frame->is_probe());
@@ -95,9 +95,9 @@ TEST(AssetTrackerDataFlow, DhcpAckProvidesHostnameAndIP) {
     // END
     pkt.push_back(255);
 
-    auto info = netmon::parse_dhcp(pkt.data(), pkt.size());
+    auto info = pnads::parse_dhcp(pkt.data(), pkt.size());
     ASSERT_TRUE(info.has_value());
-    EXPECT_EQ(info->msg_type, netmon::DhcpMsgType::ACK);
+    EXPECT_EQ(info->msg_type, pnads::DhcpMsgType::ACK);
     EXPECT_EQ(info->your_ip, "192.168.1.200");
     EXPECT_EQ(info->hostname, "server01");
     EXPECT_EQ(info->client_mac, "AA:BB:CC:11:22:33");
@@ -116,7 +116,7 @@ TEST(AssetTrackerDataFlow, BroadcastMacFiltered) {
         0xC0,0xA8,0x01,0x02
     };
 
-    auto frame = netmon::parse_arp(ARP_BCAST, sizeof(ARP_BCAST));
+    auto frame = pnads::parse_arp(ARP_BCAST, sizeof(ARP_BCAST));
     ASSERT_TRUE(frame.has_value());
     // Tracker would skip this
     EXPECT_EQ(frame->sender_mac, "FF:FF:FF:FF:FF:FF");

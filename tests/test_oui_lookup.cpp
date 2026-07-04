@@ -8,7 +8,7 @@
 
 // Test khi file không tồn tại — không crash, loaded() trả false
 TEST(OuiLookup, FileNotFound) {
-    netmon::OuiLookup oui("/nonexistent/path/oui.csv");
+    pnads::OuiLookup oui("/nonexistent/path/oui.csv");
     EXPECT_FALSE(oui.loaded());
     EXPECT_EQ(oui.size(), 0u);
     // lookup vẫn chạy được, trả "Unknown"
@@ -26,7 +26,7 @@ TEST(OuiLookup, BasicLookup) {
         f << "\"AA:BB:CC\",\"Test Vendor\"\n";
     }
 
-    netmon::OuiLookup oui(tmp_path);
+    pnads::OuiLookup oui(tmp_path);
     EXPECT_TRUE(oui.loaded());
     EXPECT_EQ(oui.size(), 3u);
 
@@ -50,7 +50,7 @@ TEST(OuiLookup, CaseInsensitive) {
         f << "\"4C:32:75\",\"Apple, Inc.\"\n";
     }
 
-    netmon::OuiLookup oui(tmp_path);
+    pnads::OuiLookup oui(tmp_path);
     EXPECT_TRUE(oui.loaded());
 
     // Cả hoa lẫn thường đều phải tìm được
@@ -63,7 +63,7 @@ TEST(OuiLookup, CaseInsensitive) {
 
 // Test MAC quá ngắn
 TEST(OuiLookup, ShortMac) {
-    netmon::OuiLookup oui("/nonexistent.csv");
+    pnads::OuiLookup oui("/nonexistent.csv");
     // MAC dưới 8 ký tự → "Unknown" không crash
     EXPECT_EQ(oui.lookup("AA:BB"), "Unknown");
     EXPECT_EQ(oui.lookup(""), "Unknown");
@@ -74,7 +74,7 @@ TEST(OuiLookup, ShortMac) {
 // Danh sách option 55 rỗng → Unknown
 TEST(OsFingerprint, EmptyOptions) {
     std::vector<uint8_t> empty;
-    auto fp = netmon::fingerprint_from_dhcp_options(empty);
+    auto fp = pnads::fingerprint_from_dhcp_options(empty);
     EXPECT_EQ(fp.os_family, "Unknown");
     EXPECT_FLOAT_EQ(fp.confidence, 0.0f);
 }
@@ -82,7 +82,7 @@ TEST(OsFingerprint, EmptyOptions) {
 // Signature Windows 7/10: {1,15,3,6,44,46,47,31,33,121,249,43,252}
 TEST(OsFingerprint, WindowsSignature) {
     std::vector<uint8_t> win_options = {1,15,3,6,44,46,47,31,33,121,249,43,252};
-    auto fp = netmon::fingerprint_from_dhcp_options(win_options);
+    auto fp = pnads::fingerprint_from_dhcp_options(win_options);
     EXPECT_EQ(fp.os_family, "Windows");
     EXPECT_GE(fp.confidence, 0.5f);
 }
@@ -90,7 +90,7 @@ TEST(OsFingerprint, WindowsSignature) {
 // Signature macOS: {1,121,3,6,15,119,252,95,44,46}
 TEST(OsFingerprint, MacOsSignature) {
     std::vector<uint8_t> mac_options = {1,121,3,6,15,119,252,95,44,46};
-    auto fp = netmon::fingerprint_from_dhcp_options(mac_options);
+    auto fp = pnads::fingerprint_from_dhcp_options(mac_options);
     EXPECT_EQ(fp.os_family, "macOS");
     EXPECT_GE(fp.confidence, 0.5f);
 }
@@ -98,7 +98,7 @@ TEST(OsFingerprint, MacOsSignature) {
 // Signature Android: {1,33,3,6,15,28,51,58,59}
 TEST(OsFingerprint, AndroidSignature) {
     std::vector<uint8_t> android_options = {1,33,3,6,15,28,51,58,59};
-    auto fp = netmon::fingerprint_from_dhcp_options(android_options);
+    auto fp = pnads::fingerprint_from_dhcp_options(android_options);
     EXPECT_EQ(fp.os_family, "Android");
     EXPECT_GE(fp.confidence, 0.5f);
 }
@@ -106,6 +106,6 @@ TEST(OsFingerprint, AndroidSignature) {
 // Option list hoàn toàn ngẫu nhiên → Unknown (điểm quá thấp)
 TEST(OsFingerprint, UnknownSignature) {
     std::vector<uint8_t> unknown = {200, 201, 202, 203};
-    auto fp = netmon::fingerprint_from_dhcp_options(unknown);
+    auto fp = pnads::fingerprint_from_dhcp_options(unknown);
     EXPECT_EQ(fp.os_family, "Unknown");
 }

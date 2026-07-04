@@ -1,173 +1,81 @@
-# passive-network-monitor
+# PNADS — Passive Network Asset Discovery System
 
-**Passive Network Monitor** là một hệ thống giám sát mạng thụ động (không can thiệp hoặc làm thay đổi lưu lượng mạng). Hệ thống được thiết kế để theo dõi, quản lý tài sản (assets) trong mạng nội bộ và phát hiện các hành vi bất thường.
+PNADS is a high-performance, passive network monitoring system written in C++20. It discovers and tracks network assets (devices) by passively analyzing network traffic (via PCAP files or live capture) without sending any active probes. 
 
-## 🌟 Tính năng cốt lõi (Features)
+It leverages multiple protocols (ARP, DHCP, DNS, mDNS, SSDP, HTTP) to discover devices, fingerprints their OS and vendor, and uses a rule-based detection engine to identify anomalous behavior (like ARP spoofing or unknown devices). 
 
-- **Theo dõi tài sản (Asset Tracking)**: Đọc các gói tin từ file PCAP hoặc bắt trực tiếp (live capture) trên interface. Phân tích các giao thức như **ARP**, **DHCP** để tự động phát hiện thiết bị (IP/MAC), hệ điều hành và gán thông tin nhà sản xuất.
-- **Enrichment**: Tự động tra cứu nhà sản xuất phần cứng (Vendor) thông qua cơ sở dữ liệu OUI của IEEE dựa vào địa chỉ MAC.
-- **Lưu trữ chuẩn xác**: Sử dụng **PostgreSQL** làm cơ sở dữ liệu trung tâm, lưu vết vòng đời của từng tài sản và các sự kiện mạng (ví dụ: cấp phát IP mới, đổi IP).
-- **Hỗ trợ đa môi trường**: Trên môi trường Windows (không sử dụng Npcap), hệ thống hỗ trợ đọc và phân tích từ các file offline `.pcap`. Trên môi trường Linux/Docker, hệ thống có thể chạy ở chế độ live capture.
+It features a PostgreSQL backend for persistence and a beautiful, modern Web Dashboard served directly via an embedded REST API.
 
-## 📂 Cấu trúc thư mục (Directory Structure)
+## Features
 
-```text
-passive-network-monitor/
-├── CMakeLists.txt        # File cấu hình build chính
-├── docker-compose.yml    # Cấu hình deploy Docker 
-├── Dockerfile            # Định nghĩa image Docker
-├── .env.example          # Mẫu biến môi trường
-├── data/                 # Chứa dữ liệu enrich (như oui.csv)
-├── docs/                 # Tài liệu thiết kế
-├── models/               # Chứa model AI (cập nhật sau)
-├── samples/              # Nơi chứa các file .pcap để test
-├── scripts/              # Chứa các script tiện ích (init_db, download_oui...)
-├── src/                  # Mã nguồn chính của dự án (C++)
-│   ├── api/              # Module REST API (Phase 4)
-│   ├── capture/          # Module đọc và xử lý gói tin (pcap_reader)
-│   ├── config/           # Cấu hình hệ thống (load từ biến môi trường)
-│   ├── db/               # Giao tiếp với PostgreSQL (DbManager)
-│   ├── enrichment/       # Phân tích MAC/OS fingerprinting
-│   ├── ml/               # Machine Learning & Phát hiện bất thường
-│   ├── parsers/          # Trình phân tích giao thức (Ethernet, ARP, DHCP)
-│   └── tracker/          # Module theo dõi tài sản và trạng thái
-└── tests/                # Unit test (GoogleTest)
-```
-
-## 🔄 Luồng hoạt động (Data Flow & Architecture)
-
-Sơ đồ dưới đây mô tả cách các thành phần chính (các file trong `src/`) gọi và tương tác với nhau từ khi khởi động (chạy `main.cpp`) cho đến khi bắt được luồng mạng và lưu vào cơ sở dữ liệu:
-
-```mermaid
-graph TD
-    Main["main.cpp"] -->|"1. Khởi tạo"| Config["config/config.cpp"]
-    Main -->|"2. Khởi tạo"| DB["db/db_manager.cpp"]
-    Main -->|"3. Khởi tạo"| OUI["enrichment/oui_lookup.cpp"]
-    Main -->|"4. Khởi tạo"| Tracker["tracker/asset_tracker.cpp"]
-    Main -->|"5. Khởi tạo & Start"| Reader["capture/pcap_reader.cpp"]
-    
-    Tracker -->|"Truy vấn DB"| DB
-    Tracker -->|"Tra cứu MAC"| OUI
-    
-    Reader -->|"Truyền RawPacket"| Callback{"Packet Callback"}
-    
-    Callback -->|"Dữ liệu thô"| Eth["parse_ethernet"]
-    Eth -->|"Payload"| Type{"Kiểm tra EtherType"}
-    
-    Type -- ETHERTYPE_ARP --> ARP["parse_arp"]
-    ARP -->|"ArpFrame"| TrackARP["AssetTracker::process_arp"]
-    TrackARP --> Tracker
-    
-    Type -- ETHERTYPE_IPV4 --> IPv4["parse_ipv4 / parse_udp"]
-    IPv4 -->|"UDP Payload (Port 67/68)"| DHCP["parse_dhcp"]
-    DHCP -->|"DhcpInfo"| TrackDHCP["AssetTracker::process_dhcp"]
-    TrackDHCP --> Tracker
-```
-
-## Tech Stack
-
-- **Language**: C++20
-- **Build**: CMake 3.20+ / Ninja
-- **Database**: PostgreSQL 16
-- **Capture**: libpcap
-- **Logging**: spdlog
-- **JSON**: nlohmann_json
-- **Testing**: GoogleTest
-- **Container**: Docker + Docker Compose
+- **Passive Discovery**: 100% passive, no impact on network traffic.
+- **Protocol Analysis**: Parses Ethernet, IPv4, UDP, TCP, ARP, DHCP, DNS, mDNS, SSDP, and HTTP (User-Agent extraction).
+- **OS Fingerprinting**: Employs a multi-signal weighted voting system (DHCP Option 55, TTL, User-Agents, mDNS, SSDP) to confidently guess the operating system.
+- **Detection Engine**: Real-time evaluation of events against rules (New Device, Watchlist Match, ARP Spoofing) to generate alerts.
+- **REST API**: Built-in HTTP server (`cpp-httplib`) exposing assets, events, alerts, and timeseries statistics.
+- **Premium Web Dashboard**: A responsive, glassmorphism-styled Single Page Application with interactive Chart.js visualizations.
+- **Lockless Tracker**: Optimized single-threaded capture loop avoids mutex contention, while the REST API queries the database concurrently.
 
 ## Prerequisites
 
-### Ubuntu/Debian (WSL2 hoặc Docker)
+- Ubuntu 24.04 (or similar Linux environment)
+- Docker & Docker Compose (Recommended for deployment)
+- For local build:
+  ```bash
+  sudo apt-get update && sudo apt-get install -y \
+      cmake ninja-build g++ pkg-config git \
+      libpcap-dev libpqxx-dev libspdlog-dev nlohmann-json3-dev \
+      libgtest-dev postgresql-client curl
+  ```
 
-```bash
-sudo apt-get update && sudo apt-get install -y \
-    cmake ninja-build g++ pkg-config \
-    libpcap-dev \
-    libpqxx-dev \
-    libspdlog-dev \
-    nlohmann-json3-dev \
-    libgtest-dev \
-    postgresql-client \
-    curl
-```
+## Setup & Running with Docker
 
-## Quick Start
+1. **Clone the repository**:
+   ```bash
+   git clone <repo-url>
+   cd passive-network-monitor
+   ```
 
-### 1. Setup environment
+2. **Download OUI Database** (Required for Vendor MAC lookups):
+   ```bash
+   chmod +x scripts/download_oui.sh
+   ./scripts/download_oui.sh
+   ```
 
-```bash
-cp .env.example .env
-# Edit .env với DB credentials của bạn
-```
+3. **Start the system via Docker Compose**:
+   ```bash
+   docker compose build
+   docker compose up -d db
+   docker compose up pnads
+   ```
+   *Note*: The default configuration reads from a sample PCAP file (`samples/test.pcap`). To run a live capture on a specific interface, edit the `docker-compose.yml` to set `PCAP_FILE: ""` and `INTERFACE: "eth0"`.
 
-### 2. Build (Phase 1)
+4. **Access the Dashboard**:
+   Open [http://localhost:8080](http://localhost:8080) in your web browser.
+
+## Architecture
+
+See [docs/design.md](docs/design.md) for detailed architecture, component diagrams, and detection rule explanations.
+
+## REST API Reference
+
+- `GET /health` : API and DB health status.
+- `GET /api/assets` : List of discovered assets.
+- `GET /api/assets/:mac/events` : Timeline of events for a specific asset.
+- `GET /api/alerts` : List of generated alerts.
+- `GET /api/stats/timeseries` : Chart data (e.g., `?interval=day&range=7d&group_by=event_type`).
+- `GET /api/watchlist` : View watchlist entries.
+- `POST /api/watchlist` : Add a suspicious MAC/IP to the watchlist.
+
+## Development & Testing
+
+To build and test locally without Docker:
 
 ```bash
 cmake --preset debug
-cmake --build build/debug -j$(nproc)
-```
+cmake --build build/debug
 
-### 3. Init database
-
-```bash
-psql -h localhost -U netmon -d netmon -f scripts/init_db.sql
-```
-
-### 4. Download OUI Database (Phase 2)
-
-Cơ sở dữ liệu MAC vendor (OUI) được yêu cầu cho chức năng Enrichment.
-
-```bash
-# Trên Linux / WSL / Git Bash:
-bash scripts/download_oui.sh
-
-# Trên Windows (Powershell/CMD):
-python scripts/download_oui.py
-```
-
-### 5. Run với PCAP file
-
-```bash
-PCAP_FILE=samples/test.pcap \
-DB_HOST=localhost DB_USER=netmon DB_PASSWORD=secret DB_NAME=netmon \
-./build/debug/netmon
-```
-
-### 6. Run tests
-
-```bash
-cd build/debug && ctest --output-on-failure
-```
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DB_HOST` | localhost | PostgreSQL host |
-| `DB_PORT` | 5432 | PostgreSQL port |
-| `DB_NAME` | netmon | Database name |
-| `DB_USER` | netmon | Database user |
-| `DB_PASSWORD` | secret | Database password |
-| `PCAP_FILE` | (empty) | Path to PCAP file (empty = live capture) |
-| `INTERFACE` | eth0 | Network interface for live capture |
-| `LOG_LEVEL` | info | Log level: debug/info/warning/error |
-| `OUI_FILE` | data/oui.csv | MAC vendor database |
-| `MODEL_PATH` | models/anomaly_model.onnx | ONNX anomaly detection model |
-| `API_PORT` | 8080 | REST API port (Phase 4) |
-
-## Project Phases
-
-- **Phase 1** ✅: Core engine — PCAP reader, ARP/DHCP parser, PostgreSQL storage
-- **Phase 2** ✅ : Enrichment — OUI vendor lookup, OS fingerprinting
-- **Phase 3**: ML — Isolation Forest anomaly detection via ONNX Runtime
-- **Phase 4** ✅ : Docker + REST API
-
-## Verify Results
-
-```bash
-# Xem tất cả assets
-psql -h localhost -U netmon -d netmon -c "SELECT * FROM asset_summary;"
-
-# Xem events gần nhất
-psql -h localhost -U netmon -d netmon -c "SELECT * FROM events ORDER BY ts DESC LIMIT 20;"
+# Run tests
+cd build/debug
+ctest --output-on-failure
 ```
