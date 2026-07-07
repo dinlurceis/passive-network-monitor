@@ -3,9 +3,10 @@
 
 using namespace pnads;
 
-TEST(OsFingerprint, WindowsFromUA) {
+TEST(OsFingerprint, WindowsFromDHCP) {
     FingerprintSignals sig;
-    sig.http_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+    // Windows DHCP signature: {1,15,3,6,44,46,47,31,33,121,249,43,252}
+    sig.dhcp_param_list = {1, 15, 3, 6, 44, 46, 47, 31, 33, 121, 249, 43, 252};
     OsFingerprint fp;
     auto result = fp.guess(sig);
     EXPECT_EQ(result.os_name, "Windows");
@@ -23,9 +24,10 @@ TEST(OsFingerprint, MacOSFromDHCP) {
     EXPECT_GT(result.confidence, 0.5f);
 }
 
-TEST(OsFingerprint, AndroidFromUA) {
+TEST(OsFingerprint, AndroidFromDHCP) {
     FingerprintSignals sig;
-    sig.http_user_agent = "Mozilla/5.0 (Linux; Android 12; Pixel 6) Mobile Safari/537.36";
+    // Android 15 signature: {1,33,3,6,15,28,51,58,59}
+    sig.dhcp_param_list = {1, 33, 3, 6, 15, 28, 51, 58, 59};
     OsFingerprint fp;
     auto result = fp.guess(sig);
     EXPECT_EQ(result.os_name, "Android");
@@ -57,7 +59,7 @@ TEST(OsFingerprint, UnknownWhenNoSignals) {
 
 TEST(OsFingerprint, ConfidenceRange) {
     FingerprintSignals sig;
-    sig.http_user_agent = "Mozilla/5.0 (Windows NT 10.0)";
+    sig.ssdp_server_header = "Windows/10.0 UPnP/1.1";
     sig.observed_ttl    = 128;
     OsFingerprint fp;
     auto result = fp.guess(sig);

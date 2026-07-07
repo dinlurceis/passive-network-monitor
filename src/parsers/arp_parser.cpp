@@ -4,8 +4,12 @@
 
 namespace pnads {
 
-// ARP packet layout (28 bytes for IPv4 over Ethernet):
-// htype(2) ptype(2) hlen(1) plen(1) opcode(2)
+// Cấu trúc gói ARP (28 byte cho IPv4 trên Ethernet):
+// htype(2) - loại phần cứng
+// ptype(2) - loại giao thức
+// hlen(1) - độ dài địa chỉ phần cứng
+// plen(1) - độ dài địa chỉ giao thức
+// opcode(2) - 1 là request, 2 là reply
 // sender_mac(6) sender_ip(4) target_mac(6) target_ip(4)
 
 static std::string mac_array_to_string(const std::array<uint8_t, 6>& m) {
@@ -18,26 +22,26 @@ std::optional<ArpFrame> parse_arp(const uint8_t* data, size_t len) {
 
     auto htype = r.read_u16(); auto ptype = r.read_u16();
     auto hlen  = r.read_u8();  auto plen  = r.read_u8();
-    auto op    = r.read_u16();
-    auto sha   = r.read_mac(); auto spa = r.read_ipv4_str();
-    auto tha   = r.read_mac(); auto tpa = r.read_ipv4_str();
+    auto opcode    = r.read_u16();
+    auto sender_mac_array   = r.read_mac(); auto sender_ip = r.read_ipv4_str();
+    auto target_mac_array   = r.read_mac(); auto target_ip = r.read_ipv4_str();
 
-    if (!htype || !ptype || !hlen || !plen || !op ||
-        !sha   || !spa   || !tha  || !tpa) {
+    if (!htype || !ptype || !hlen || !plen || !opcode ||
+        !sender_mac_array   || !sender_ip   || !target_mac_array  || !target_ip) {
         return std::nullopt;
     }
 
-    // Validate: Ethernet (1), IPv4 (0x0800), hlen=6, plen=4
+    // Kiểm tra hợp lệ: Ethernet (1), IPv4 (0x0800), hlen=6, plen=4
     if (*htype != 1 || *ptype != 0x0800 || *hlen != 6 || *plen != 4) {
         return std::nullopt;
     }
 
     ArpFrame frame{};
-    frame.opcode     = *op;
-    frame.sender_mac = mac_array_to_string(*sha);
-    frame.sender_ip  = *spa;
-    frame.target_mac = mac_array_to_string(*tha);
-    frame.target_ip  = *tpa;
+    frame.opcode     = *opcode;
+    frame.sender_mac = mac_array_to_string(*sender_mac_array);
+    frame.sender_ip  = *sender_ip;
+    frame.target_mac = mac_array_to_string(*target_mac_array);
+    frame.target_ip  = *target_ip;
 
     return frame;
 }

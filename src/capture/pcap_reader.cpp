@@ -5,7 +5,7 @@
 
 namespace pnads {
 
-// Static dispatch callback for pcap_loop
+// Hàm callback tĩnh dùng để chuyển tiếp gói tin cho pcap_loop
 static void pcap_dispatch_cb(uint8_t* user,
                               const struct pcap_pkthdr* header,
                               const uint8_t* packet) {
@@ -29,7 +29,7 @@ PcapReader::PcapReader(const std::string& file_or_iface, bool live)
     if (!live) {
         handle_ = pcap_open_offline(file_or_iface.c_str(), errbuf);
     } else {
-        // snaplen=65535, promiscuous=1, timeout_ms=1000
+        // snaplen=65535 (độ dài tối đa bắt mỗi gói), promiscuous=1 (bắt mọi gói), timeout_ms=1000
         handle_ = pcap_open_live(file_or_iface.c_str(), 65535, 1, 1000, errbuf);
     }
 
@@ -59,14 +59,14 @@ bool PcapReader::set_filter(const std::string& filter_expr) {
 void PcapReader::start(PacketCallback cb) {
     running_ = true;
 
-    // Context: pair of (callback ptr, running flag ptr)
-    // We use pcap_loop with a static dispatch function
+    // Ngữ cảnh: cặp gồm (con trỏ tới callback, con trỏ tới cờ đang chạy)
+    // Dùng pcap_loop kèm một hàm chuyển tiếp tĩnh
     auto ctx = std::make_pair(&cb, &running_);
 
-    // pcap_loop returns:
-    //  0  = count packets processed
-    // -1  = error
-    // -2  = pcap_breakloop() called
+    // pcap_loop trả về:
+    //  0  = số gói tin đã xử lý
+    // -1  = có lỗi
+    // -2  = đã gọi pcap_breakloop()
     pcap_loop(handle_, 0,
         [](uint8_t* user, const struct pcap_pkthdr* hdr, const uint8_t* pkt) {
             auto* c = reinterpret_cast<std::pair<PacketCallback*, std::atomic<bool>*>*>(user);

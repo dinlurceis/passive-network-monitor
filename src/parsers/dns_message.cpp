@@ -5,13 +5,13 @@
 namespace pnads {
 
 // Parse DNS name with pointer compression (RFC 1035 section 4.1.4)
-// base: pointer to start of entire DNS message (for pointer resolution)
-// base_len: total length of DNS message
-// pos: current offset into the message (modified on return)
+// base: con trỏ đầu thông điệp DNS (để giải mã pointer)
+// base_len: tổng độ dài thông điệp DNS
+// pos: vị trí hiện tại trong thông điệp (sẽ bị thay đổi)
 static std::string parse_dns_name(const uint8_t* base, size_t base_len, size_t& pos) {
     std::string name;
     bool first = true;
-    int max_jumps = 10;  // prevent infinite loops from malformed packets
+    int max_jumps = 10;  // chống lặp vô hạn từ gói tin lỗi
 
     while (pos < base_len) {
         uint8_t len_byte = base[pos];
@@ -55,10 +55,11 @@ std::optional<DnsMessage> parse_dns_message(const uint8_t* data, size_t len) {
     auto flags = r.read_u16();
     auto qdcnt = r.read_u16();
     auto ancnt = r.read_u16();
-    // skip nscount + arcount
+    // bỏ qua nscount + arcount
     if (!r.skip(4)) return std::nullopt;
 
-    if (!id || !flags || !qdcnt || !ancnt) return std::nullopt;
+    // Check only if reads failed — qdcnt=0 and ancnt=0 are valid DNS/mDNS values
+    if (!id.has_value() || !flags.has_value() || !qdcnt.has_value() || !ancnt.has_value()) return std::nullopt;
 
     DnsMessage msg{};
     msg.id          = *id;
@@ -70,7 +71,7 @@ std::optional<DnsMessage> parse_dns_message(const uint8_t* data, size_t len) {
     for (uint16_t i = 0; i < *qdcnt && pos < len; ++i) {
         std::string qname = parse_dns_name(data, len, pos);
         msg.questions.push_back(qname);
-        pos += 4; // skip qtype(2) + qclass(2)
+        pos += 4; // bỏ qua qtype(2) + qclass(2)
     }
 
     // Parse answers
@@ -118,6 +119,10 @@ std::optional<DnsMessage> parse_dns_message(const uint8_t* data, size_t len) {
                 rec.rdata_str += std::string(reinterpret_cast<const char*>(data + txt_pos), txt_len);
                 txt_pos += txt_len;
             }
+        } else if (*rtype == 33 && *rdlen >= 6) {
+            // SRV record — priority(2) + weight(2) + port(2) + target
+            size_t target_pos = pos + 6;
+            rec.rdata_str = parse_dns_name(data, len, target_pos);
         }
 
         msg.answers.push_back(rec);

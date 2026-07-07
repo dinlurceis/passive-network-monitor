@@ -7,11 +7,11 @@
 
 namespace pnads {
 
-// EtherType constants
-constexpr uint16_t ETHERTYPE_ARP  = 0x0806;
-constexpr uint16_t ETHERTYPE_IPV4 = 0x0800;
-constexpr uint16_t ETHERTYPE_IPV6 = 0x86DD;
-constexpr uint16_t ETHERTYPE_VLAN = 0x8100;
+// Các hằng số EtherType
+constexpr uint16_t ETHERTYPE_ARP   = 0x0806;
+constexpr uint16_t ETHERTYPE_IPV4  = 0x0800;
+constexpr uint16_t ETHERTYPE_IPV6  = 0x86DD;
+constexpr uint16_t ETHERTYPE_VLAN  = 0x8100;  // VLAN tag đơn 802.1Q
 
 constexpr size_t ETH_HEADER_LEN   = 14;
 constexpr size_t ETH_ADDR_LEN     = 6;

@@ -4,7 +4,7 @@
 namespace pnads {
 
 struct Config {
-    // Database
+    // Cơ sở dữ liệu
     std::string db_host     = "localhost";
     int         db_port     = 5432;
     std::string db_name     = "pnads";
@@ -12,7 +12,7 @@ struct Config {
     std::string db_password = "secret";
 
     // Capture
-    std::string pcap_file   = "";       // empty = live capture
+    std::string pcap_file   = "";       // chuỗi rỗng = live capture
     std::string interface   = "eth0";   // dùng khi pcap_file empty
     int         snaplen     = 65535;
     int         timeout_ms  = 1000;

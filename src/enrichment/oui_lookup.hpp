@@ -21,6 +21,16 @@ public:
     size_t size()   const { return table_.size(); }
     bool   loaded() const { return loaded_; }
 
+    // Kiểm tra MAC có phải là "Locally Administered" (random) không.
+    // Bit 1 của byte đầu tiên (LSB của octet 0) = 1 → locally administered
+    // → nhiều khả năng là MAC được randomize bởi OS (iOS 14+, Android 10+, Win 10+)
+    // Input: "AA:BB:CC:DD:EE:FF"
+    static bool is_randomized_mac(const std::string& mac);
+
+    // Kiểm tra MAC có phải multicast/broadcast không.
+    // Bit 0 của byte đầu tiên = 1 → multicast (FF:FF:FF:FF:FF:FF là trường hợp đặc biệt)
+    static bool is_multicast_mac(const std::string& mac);
+
 private:
     std::unordered_map<std::string, std::string> table_; // "AA:BB:CC" → vendor
     bool loaded_ = false;

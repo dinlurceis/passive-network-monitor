@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PNADS Dashboard</title>
+    <title>PNADS — Passive Network Asset Discovery System</title>
+    <meta name="description" content="Real-time passive network monitoring dashboard — assets, alerts, events, PCAP upload">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -19,19 +20,34 @@
                 <span>PNADS</span>
             </div>
             <nav class="nav-menu">
-                <a href="#" class="nav-item active" data-page="dashboard">
+                <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
                     <i class="fa-solid fa-chart-pie"></i> Dashboard
                 </a>
-                <a href="#" class="nav-item" data-page="assets">
+                <a href="#" class="nav-item" data-page="assets" id="nav-assets">
                     <i class="fa-solid fa-laptop-code"></i> Assets
                 </a>
-                <a href="#" class="nav-item" data-page="alerts">
-                    <i class="fa-solid fa-bell"></i> Alerts <span class="badge" id="alert-badge" style="display:none;">0</span>
+                <a href="#" class="nav-item" data-page="events" id="nav-events">
+                    <i class="fa-solid fa-list-ul"></i> Events
                 </a>
-                <a href="#" class="nav-item" data-page="watchlist">
+                <a href="#" class="nav-item" data-page="alerts" id="nav-alerts">
+                    <i class="fa-solid fa-bell"></i> Alerts
+                    <span class="badge" id="alert-badge" style="display:none;">0</span>
+                </a>
+                <a href="#" class="nav-item" data-page="watchlist" id="nav-watchlist">
                     <i class="fa-solid fa-eye"></i> Watchlist
                 </a>
             </nav>
+
+            <!-- PCAP Status indicator -->
+            <div class="pcap-status-card" id="pcap-status-card">
+                <div class="pcap-status-header">
+                    <i class="fa-solid fa-file-waveform"></i>
+                    <span>PCAP Status</span>
+                </div>
+                <div id="pcap-mode-badge" class="pcap-mode-badge pcap-idle">Idle</div>
+                <div id="pcap-current-file" class="pcap-current-file">—</div>
+            </div>
+
             <div class="status-indicator">
                 <div class="status-dot healthy" id="api-status-dot"></div>
                 <span id="api-status-text">Connecting...</span>
@@ -42,6 +58,11 @@
             <header class="topbar glass">
                 <h1 id="page-title">Dashboard</h1>
                 <div class="topbar-actions">
+                    <!-- PCAP Upload Button -->
+                    <button class="btn btn-upload" id="pcap-upload-btn" onclick="openPcapUploadModal()" title="Upload PCAP file">
+                        <i class="fa-solid fa-upload"></i>
+                        <span>Upload PCAP</span>
+                    </button>
                     <button class="btn btn-icon" onclick="refreshCurrentPage()" title="Refresh data">
                         <i class="fa-solid fa-rotate-right"></i>
                     </button>
@@ -49,12 +70,12 @@
             </header>
 
             <div class="page-container" id="page-container">
-                <!-- Content will be injected here via JS -->
+                <!-- Content injected by JS -->
             </div>
         </main>
     </div>
 
-    <!-- Modals -->
+    <!-- ── Timeline Modal ──────────────────────────────────────────────── -->
     <div class="modal-overlay" id="timeline-modal">
         <div class="modal glass">
             <div class="modal-header">
@@ -66,6 +87,66 @@
             </div>
         </div>
     </div>
+
+    <!-- ── PCAP Upload Modal ───────────────────────────────────────────── -->
+    <div class="modal-overlay" id="pcap-upload-modal">
+        <div class="modal glass" style="max-width: 520px;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-file-waveform" style="color: var(--accent);"></i> Upload PCAP File</h2>
+                <button class="btn btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <div class="upload-info-box">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <p>Uploading a PCAP will <strong>pause the stable loop</strong> temporarily and process your file with priority. The loop resumes automatically after.</p>
+                </div>
+
+                <!-- Current status -->
+                <div class="upload-status-row">
+                    <span class="upload-status-label">Current mode:</span>
+                    <span id="upload-modal-mode" class="pcap-mode-badge pcap-idle">Idle</span>
+                </div>
+                <div class="upload-status-row" id="upload-modal-current-row">
+                    <span class="upload-status-label">Running:</span>
+                    <span id="upload-modal-current" class="upload-status-value">—</span>
+                </div>
+
+                <div class="upload-drop-zone" id="upload-drop-zone">
+                    <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                    <p class="upload-drop-text">Drag & drop <code>.pcap</code> file here<br>or click to browse</p>
+                    <input type="file" id="pcap-file-input" accept=".pcap,.pcapng" style="display:none;">
+                    <button class="btn btn-primary mt-2" onclick="document.getElementById('pcap-file-input').click()">
+                        Choose File
+                    </button>
+                </div>
+
+                <div id="upload-file-info" class="upload-file-info" style="display:none;">
+                    <i class="fa-solid fa-file-circle-check" style="color: var(--success);"></i>
+                    <span id="upload-file-name"></span>
+                    <span id="upload-file-size" class="upload-file-size"></span>
+                </div>
+
+                <div id="upload-progress-container" style="display:none;">
+                    <div class="progress-bar-wrap">
+                        <div class="progress-bar-fill" id="upload-progress-fill"></div>
+                    </div>
+                    <div id="upload-progress-text" class="upload-progress-text">Uploading...</div>
+                </div>
+
+                <div id="upload-result" style="display:none;"></div>
+
+                <div class="upload-actions">
+                    <button class="btn btn-primary" id="upload-submit-btn" onclick="submitPcapUpload()" disabled>
+                        <i class="fa-solid fa-upload"></i> Upload &amp; Process
+                    </button>
+                    <button class="btn close-modal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Toast Container ────────────────────────────────────────────── -->
+    <div class="toast-container" id="toast-container"></div>
 
     <script src="app.js"></script>
 </body>

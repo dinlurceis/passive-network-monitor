@@ -6,12 +6,10 @@
 
 namespace pnads {
 
-// ── Constructor ───────────────────────────────────────────────────────────────
 DbManager::DbManager(const std::string& conn_str) {
     conn_ = std::make_unique<pqxx::connection>(conn_str);
 }
 
-// ── ping ──────────────────────────────────────────────────────────────────────
 bool DbManager::ping() {
     try {
         pqxx::work txn(*conn_);
@@ -24,7 +22,6 @@ bool DbManager::ping() {
     }
 }
 
-// ── initialize_schema ─────────────────────────────────────────────────────────
 void DbManager::initialize_schema() {
     pqxx::work txn(*conn_);
 
@@ -84,7 +81,7 @@ void DbManager::initialize_schema() {
         );
     )sql");
 
-    // Indexes
+    // Các index
     txn.exec("CREATE INDEX IF NOT EXISTS idx_assets_mac      ON assets(mac);");
     txn.exec("CREATE INDEX IF NOT EXISTS idx_assets_ip       ON assets(ip);");
     txn.exec("CREATE INDEX IF NOT EXISTS idx_events_asset_id ON events(asset_id);");
@@ -107,7 +104,6 @@ void DbManager::initialize_schema() {
     spdlog::debug("DB schema initialized");
 }
 
-// ── row_to_asset ──────────────────────────────────────────────────────────────
 Asset DbManager::row_to_asset(const pqxx::row& row) {
     Asset a{};
     a.id           = row["id"].as<int>();
@@ -126,7 +122,6 @@ Asset DbManager::row_to_asset(const pqxx::row& row) {
     return a;
 }
 
-// ── find_asset_by_mac ─────────────────────────────────────────────────────────
 std::optional<Asset> DbManager::find_asset_by_mac(const std::string& mac) {
     pqxx::work txn(*conn_);
     auto result = txn.exec_params(
@@ -137,7 +132,6 @@ std::optional<Asset> DbManager::find_asset_by_mac(const std::string& mac) {
     return row_to_asset(result[0]);
 }
 
-// ── find_asset_by_ip ──────────────────────────────────────────────────────────
 std::optional<Asset> DbManager::find_asset_by_ip(const std::string& ip) {
     pqxx::work txn(*conn_);
     auto result = txn.exec_params(
@@ -148,7 +142,6 @@ std::optional<Asset> DbManager::find_asset_by_ip(const std::string& ip) {
     return row_to_asset(result[0]);
 }
 
-// ── insert_asset ──────────────────────────────────────────────────────────────
 Asset DbManager::insert_asset(const Asset& a) {
     pqxx::work txn(*conn_);
     auto result = txn.exec_params(
@@ -165,7 +158,6 @@ Asset DbManager::insert_asset(const Asset& a) {
     return row_to_asset(result[0]);
 }
 
-// ── update_asset ──────────────────────────────────────────────────────────────
 void DbManager::update_asset(const Asset& a) {
     pqxx::work txn(*conn_);
     txn.exec_params(
@@ -177,35 +169,30 @@ void DbManager::update_asset(const Asset& a) {
     txn.commit();
 }
 
-// ── update_asset_last_seen ────────────────────────────────────────────────────
 void DbManager::update_asset_last_seen(int id) {
     pqxx::work txn(*conn_);
     txn.exec_params("UPDATE assets SET last_seen=NOW() WHERE id=$1", id);
     txn.commit();
 }
 
-// ── update_asset_ip ───────────────────────────────────────────────────────────
 void DbManager::update_asset_ip(int id, const std::string& ip) {
     pqxx::work txn(*conn_);
     txn.exec_params("UPDATE assets SET ip=NULLIF($2,''), last_seen=NOW() WHERE id=$1", id, ip);
     txn.commit();
 }
 
-// ── update_asset_hostname ─────────────────────────────────────────────────────
 void DbManager::update_asset_hostname(int id, const std::string& hostname) {
     pqxx::work txn(*conn_);
     txn.exec_params("UPDATE assets SET hostname=NULLIF($2,'') WHERE id=$1", id, hostname);
     txn.commit();
 }
 
-// ── update_asset_vendor ───────────────────────────────────────────────────────
 void DbManager::update_asset_vendor(int id, const std::string& vendor) {
     pqxx::work txn(*conn_);
     txn.exec_params("UPDATE assets SET vendor=NULLIF($2,'') WHERE id=$1", id, vendor);
     txn.commit();
 }
 
-// ── update_asset_os ───────────────────────────────────────────────────────────
 void DbManager::update_asset_os(int id, const std::string& os_guess, float confidence) {
     pqxx::work txn(*conn_);
     txn.exec_params(
@@ -214,10 +201,9 @@ void DbManager::update_asset_os(int id, const std::string& os_guess, float confi
     txn.commit();
 }
 
-// ── update_asset_discovered_via ───────────────────────────────────────────────
 void DbManager::update_asset_discovered_via(int id, const std::vector<std::string>& via) {
     if (via.empty()) return;
-    // Build PostgreSQL array literal: ARRAY['arp','dhcp']
+    // Tạo array literal của PostgreSQL: ARRAY['arp','dhcp']
     std::string arr = "ARRAY[";
     for (size_t i = 0; i < via.size(); ++i) {
         if (i > 0) arr += ',';
@@ -232,21 +218,18 @@ void DbManager::update_asset_discovered_via(int id, const std::vector<std::strin
     txn.commit();
 }
 
-// ── update_asset_trusted ──────────────────────────────────────────────────────
 void DbManager::update_asset_trusted(int id, bool trusted) {
     pqxx::work txn(*conn_);
     txn.exec_params("UPDATE assets SET is_trusted=$2 WHERE id=$1", id, trusted);
     txn.commit();
 }
 
-// ── set_asset_inactive ────────────────────────────────────────────────────────
 void DbManager::set_asset_inactive(int id) {
     pqxx::work txn(*conn_);
     txn.exec_params("UPDATE assets SET is_active=FALSE WHERE id=$1", id);
     txn.commit();
 }
 
-// ── insert_event ──────────────────────────────────────────────────────────────
 void DbManager::insert_event(int asset_id,
                               const std::string& event_type,
                               const std::string& protocol,
@@ -261,7 +244,31 @@ void DbManager::insert_event(int asset_id,
     txn.commit();
 }
 
-// ── get_events_by_asset ───────────────────────────────────────────────────────
+void DbManager::insert_events_batch(const std::vector<EventBuffer>& events) {
+    if (events.empty()) return;
+    try {
+        pqxx::work txn(*conn_);
+        auto stream = pqxx::stream_to::table(
+            txn, {"events"}, 
+            {"asset_id", "event_type", "protocol", "old_value", "new_value", "detail"}
+        );
+        for (const auto& ev : events) {
+            stream << std::make_tuple(
+                ev.asset_id,
+                ev.event_type,
+                ev.protocol,
+                ev.old_val.empty() ? std::optional<std::string>{} : ev.old_val,
+                ev.new_val.empty() ? std::optional<std::string>{} : ev.new_val,
+                ev.detail_json
+            );
+        }
+        stream.complete();
+        txn.commit();
+    } catch (const std::exception& e) {
+        spdlog::error("insert_events_batch failed: {}", e.what());
+    }
+}
+
 std::vector<pqxx::row> DbManager::get_events_by_asset(const std::string& mac, int limit) {
     pqxx::work txn(*conn_);
     auto result = txn.exec_params(
@@ -274,7 +281,6 @@ std::vector<pqxx::row> DbManager::get_events_by_asset(const std::string& mac, in
     return std::vector<pqxx::row>(result.begin(), result.end());
 }
 
-// ── insert_alert ──────────────────────────────────────────────────────────────
 void DbManager::insert_alert(int asset_id,
                               const std::string& rule_type,
                               const std::string& severity,
@@ -288,7 +294,7 @@ void DbManager::insert_alert(int asset_id,
     txn.commit();
 }
 
-// ── get_alerts ────────────────────────────────────────────────────────────────
+// get_alerts
 std::vector<AlertRecord> DbManager::get_alerts(bool unacked_only,
                                                 const std::string& severity_filter) {
     pqxx::work txn(*conn_);
@@ -317,14 +323,14 @@ std::vector<AlertRecord> DbManager::get_alerts(bool unacked_only,
     return alerts;
 }
 
-// ── ack_alert ─────────────────────────────────────────────────────────────────
+// ack_alert
 void DbManager::ack_alert(int id) {
     pqxx::work txn(*conn_);
     txn.exec_params("UPDATE alerts SET acknowledged=TRUE WHERE id=$1", id);
     txn.commit();
 }
 
-// ── get_watchlist ─────────────────────────────────────────────────────────────
+// get_watchlist
 std::vector<WatchlistEntry> DbManager::get_watchlist() {
     pqxx::work txn(*conn_);
     auto result = txn.exec(
@@ -344,7 +350,7 @@ std::vector<WatchlistEntry> DbManager::get_watchlist() {
     return list;
 }
 
-// ── insert_watchlist ──────────────────────────────────────────────────────────
+// insert_watchlist
 WatchlistEntry DbManager::insert_watchlist(const std::string& mac,
                                             const std::string& ip,
                                             const std::string& label,
@@ -366,14 +372,14 @@ WatchlistEntry DbManager::insert_watchlist(const std::string& mac,
             row["note"].is_null() ? "" : row["note"].as<std::string>()};
 }
 
-// ── delete_watchlist ──────────────────────────────────────────────────────────
+// delete_watchlist
 void DbManager::delete_watchlist(int id) {
     pqxx::work txn(*conn_);
     txn.exec_params("DELETE FROM watchlist WHERE id=$1", id);
     txn.commit();
 }
 
-// ── get_all_assets ────────────────────────────────────────────────────────────
+// get_all_assets
 std::vector<Asset> DbManager::get_all_assets(bool active_only) {
     pqxx::work txn(*conn_);
     std::string query =
@@ -391,7 +397,7 @@ std::vector<Asset> DbManager::get_all_assets(bool active_only) {
     return assets;
 }
 
-// ── get_assets_not_seen_since ─────────────────────────────────────────────────
+// get_assets_not_seen_since
 std::vector<Asset> DbManager::get_assets_not_seen_since(int seconds_ago) {
     pqxx::work txn(*conn_);
     auto rows = txn.exec_params(
@@ -406,7 +412,146 @@ std::vector<Asset> DbManager::get_assets_not_seen_since(int seconds_ago) {
     return assets;
 }
 
-// ── get_total_events ──────────────────────────────────────────────────────────
+// get_all_assets_paged
+PageResult<Asset> DbManager::get_all_assets_paged(bool active_only, int page, int page_size) {
+    if (page < 1) page = 1;
+    if (page_size < 1) page_size = 20;
+    int offset = (page - 1) * page_size;
+
+    pqxx::work txn(*conn_);
+
+    // COUNT
+    std::string count_sql = "SELECT COUNT(*) FROM assets";
+    if (active_only) count_sql += " WHERE is_active=TRUE";
+    auto cnt = txn.exec(count_sql);
+    int total = cnt.empty() ? 0 : cnt[0][0].as<int>();
+
+    // DATA
+    std::string data_sql =
+        "SELECT id, mac, ip, hostname, vendor, os_guess, os_confidence, is_active, is_trusted "
+        "FROM assets";
+    if (active_only) data_sql += " WHERE is_active=TRUE";
+    data_sql += " ORDER BY last_seen DESC LIMIT $1 OFFSET $2";
+
+    auto rows = txn.exec_params(data_sql, page_size, offset);
+    txn.commit();
+
+    PageResult<Asset> result;
+    result.total      = total;
+    result.page       = page;
+    result.page_size  = page_size;
+    result.total_pages = (total + page_size - 1) / page_size;
+    for (const auto& row : rows) result.data.push_back(row_to_asset(row));
+    return result;
+}
+
+// get_alerts_paged
+PageResult<AlertRecord> DbManager::get_alerts_paged(bool unacked_only,
+                                                      const std::string& severity_filter,
+                                                      int page, int page_size) {
+    if (page < 1) page = 1;
+    if (page_size < 1) page_size = 20;
+    int offset = (page - 1) * page_size;
+
+    pqxx::work txn(*conn_);
+
+    std::string where = " WHERE 1=1";
+    if (unacked_only)            where += " AND acknowledged=FALSE";
+    if (!severity_filter.empty()) where += " AND severity='" + severity_filter + "'";
+
+    // COUNT
+    int total = 0;
+    {
+        auto cnt = txn.exec("SELECT COUNT(*) FROM alerts" + where);
+        total = cnt.empty() ? 0 : cnt[0][0].as<int>();
+    }
+
+    // DATA — ts được format thành ISO8601 với timezone +07:00 (Việt Nam)
+    std::string data_sql =
+        "SELECT id, asset_id, rule_type, severity, message, detail, acknowledged, "
+        "to_char(ts AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD\"T\"HH24:MI:SS+07:00') AS ts "
+        "FROM alerts" + where + " ORDER BY ts DESC LIMIT $1 OFFSET $2";
+    auto rows = txn.exec_params(data_sql, page_size, offset);
+    txn.commit();
+
+    PageResult<AlertRecord> result;
+    result.total       = total;
+    result.page        = page;
+    result.page_size   = page_size;
+    result.total_pages = (total + page_size - 1) / page_size;
+    for (const auto& row : rows) {
+        AlertRecord ar{};
+        ar.id           = row["id"].as<int>();
+        ar.asset_id     = row["asset_id"].is_null() ? 0 : row["asset_id"].as<int>();
+        ar.rule_type    = row["rule_type"].as<std::string>();
+        ar.severity     = row["severity"].as<std::string>();
+        ar.message      = row["message"].as<std::string>();
+        ar.detail_json  = row["detail"].as<std::string>();
+        ar.acknowledged = row["acknowledged"].as<bool>();
+        ar.ts           = row["ts"].is_null() ? "" : row["ts"].as<std::string>();
+        result.data.push_back(ar);
+    }
+    return result;
+}
+
+// get_events_paged
+PageResult<DbManager::EventRow> DbManager::get_events_paged(
+        const std::string& type_filter,
+        const std::string& protocol_filter,
+        int page, int page_size) {
+    if (page < 1) page = 1;
+    if (page_size < 1) page_size = 20;
+    int offset = (page - 1) * page_size;
+
+    pqxx::work txn(*conn_);
+
+    std::string where = " WHERE 1=1";
+    if (!type_filter.empty())     where += " AND e.event_type='" + type_filter + "'";
+    if (!protocol_filter.empty()) where += " AND e.protocol='"   + protocol_filter + "'";
+
+    // COUNT
+    int total = 0;
+    {
+        auto cnt = txn.exec(
+            "SELECT COUNT(*) FROM events e"
+            " JOIN assets a ON a.id = e.asset_id" + where);
+        total = cnt.empty() ? 0 : cnt[0][0].as<int>();
+    }
+
+    // DATA — ts được format thành ISO8601 với timezone +07:00 (Việt Nam)
+    std::string data_sql =
+        "SELECT e.id, e.asset_id, a.mac, e.event_type, e.protocol, "
+        "e.old_value, e.new_value, e.detail, "
+        "to_char(e.ts AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD\"T\"HH24:MI:SS+07:00') AS ts "
+        "FROM events e JOIN assets a ON a.id = e.asset_id"
+        + where + " ORDER BY e.ts DESC LIMIT $1 OFFSET $2";
+    auto rows = txn.exec_params(data_sql, page_size, offset);
+    txn.commit();
+
+    PageResult<EventRow> result;
+    result.total       = total;
+    result.page        = page;
+    result.page_size   = page_size;
+    result.total_pages = (total + page_size - 1) / page_size;
+    for (const auto& row : rows) {
+        EventRow er{};
+        er.id         = row["id"].as<int>();
+        er.asset_id   = row["asset_id"].as<int>();
+        er.mac        = row["mac"].as<std::string>();
+        er.event_type = row["event_type"].as<std::string>();
+        er.protocol   = row["protocol"].as<std::string>();
+        er.old_value  = row["old_value"].is_null() ? "" : row["old_value"].as<std::string>();
+        er.new_value  = row["new_value"].is_null() ? "" : row["new_value"].as<std::string>();
+        er.detail     = row["detail"].as<std::string>();
+        er.ts         = row["ts"].as<std::string>();
+        result.data.push_back(er);
+    }
+    return result;
+}
+
+
+
+// get_total_events
 int DbManager::get_total_events() {
     pqxx::work txn(*conn_);
     auto result = txn.exec("SELECT COUNT(*) FROM events");
@@ -414,7 +559,7 @@ int DbManager::get_total_events() {
     return result.empty() ? 0 : result[0][0].as<int>();
 }
 
-// ── get_unacked_alerts_count ──────────────────────────────────────────────────
+// get_unacked_alerts_count
 int DbManager::get_unacked_alerts_count() {
     pqxx::work txn(*conn_);
     auto result = txn.exec("SELECT COUNT(*) FROM alerts WHERE acknowledged=FALSE");
@@ -422,7 +567,7 @@ int DbManager::get_unacked_alerts_count() {
     return result.empty() ? 0 : result[0][0].as<int>();
 }
 
-// ── get_timeseries ────────────────────────────────────────────────────────────
+// get_timeseries
 std::vector<TimeseriesBucket> DbManager::get_timeseries(const std::string& interval,
                                                           int range_hours,
                                                           const std::string& group_by,

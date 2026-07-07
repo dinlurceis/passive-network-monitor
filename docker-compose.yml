@@ -6,6 +6,8 @@ services:
       POSTGRES_DB: pnads
       POSTGRES_USER: pnads
       POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
@@ -17,12 +19,13 @@ services:
 
   pnads:
     build: .
+    container_name: pnads
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
     environment:
-      DB_HOST: db
+      DB_HOST: "db"
       DB_PORT: "5432"
       DB_NAME: pnads
       DB_USER: pnads
@@ -30,15 +33,27 @@ services:
       LOG_LEVEL: info
       OUI_FILE: /app/data/oui.csv
       API_PORT: "8080"
-      PCAP_FILE: ""
+      PCAP_FILE: "/samples/test.pcap"
       INTERFACE: "eth0"
+      PCAP_REPLAY_REALTIME: "true"
     volumes:
       - ./samples:/samples:ro
       - ./data:/app/data:ro
-    network_mode: host
     cap_add: [NET_RAW, NET_ADMIN]
     ports:
       - "8080:8080"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:

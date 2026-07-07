@@ -8,7 +8,7 @@
 
 namespace pnads {
 
-// Đọc tuần tự một buffer byte theo network byte order (big-endian).
+// Đọc tuần tự một buffer byte theo network byte order.
 // Mọi hàm read_* tự tăng con trỏ nội bộ và trả std::nullopt nếu vượt biên,
 // nhờ vậy parser gọi tuần tự các hàm này mà không cần tự tính offset.
 class BinaryReader {
@@ -20,8 +20,8 @@ public:
     size_t offset()         const { return pos_; }
 
     std::optional<uint8_t>  read_u8();
-    std::optional<uint16_t> read_u16();   // big-endian
-    std::optional<uint32_t> read_u32();   // big-endian
+    std::optional<uint16_t> read_u16();   // big-endian (lưu byte lớn ở đầu, byte nhỏ ở sau)
+    std::optional<uint32_t> read_u32();   // big-endian (lưu byte lớn ở đầu, byte nhỏ ở sau)
     std::optional<std::array<uint8_t, 6>> read_mac();
     std::optional<std::string> read_ipv4_str();   // "192.168.1.1"
     std::optional<std::string> read_ipv6_str();

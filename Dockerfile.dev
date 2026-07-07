@@ -19,7 +19,7 @@ RUN git clone --depth 1 --branch 7.9.2 https://github.com/jtv/libpqxx.git /tmp/l
         -DCMAKE_CXX_STANDARD=20 \
         -DSKIP_BUILD_TEST=ON \
         -DBUILD_SHARED_LIBS=ON \
-    && cmake --build /tmp/libpqxx/build -j$(nproc) \
+    && cmake --build /tmp/libpqxx/build \
     && cmake --install /tmp/libpqxx/build \
     && ldconfig \
     && rm -rf /tmp/libpqxx

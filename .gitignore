@@ -39,6 +39,7 @@ tests/fixtures/*.pcap
 AGENTS.md
 AGENTS_NEWEST.md
 slides_content.md
+bao_cao_pnads.md
 
 *.log
 *.pcap
@@ -49,3 +50,6 @@ slides_content.md
 *.so
 *.a
 *.lib
+
+# coverage report
+coverage_html/

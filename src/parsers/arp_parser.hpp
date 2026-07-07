@@ -5,10 +5,10 @@
 
 namespace pnads {
 
-// ARP opcodes
+// Các mã opcode của ARP
 constexpr uint16_t ARP_REQUEST     = 1;
 constexpr uint16_t ARP_REPLY       = 2;
-constexpr uint16_t ARP_RARP_REQ    = 3;
+constexpr uint16_t ARP_RARP_REQ    = 3; // reverse ARP - tìm IP từ MAC
 constexpr uint16_t ARP_RARP_REPLY  = 4;
 
 struct ArpFrame {
@@ -18,10 +18,11 @@ struct ArpFrame {
     std::string target_mac;
     std::string target_ip;
 
-    // Derived helpers
     bool is_request()    const { return opcode == ARP_REQUEST; }
     bool is_reply()      const { return opcode == ARP_REPLY; }
+    // yêu cầu cập nhật bảng MAC của các thiết bị trong mạng LAN (dùng khi mới kết nối mạng/ đổi IP)
     bool is_gratuitous() const { return is_reply() && sender_ip == target_ip; }
+    // thăm dò xem có thiết bị nào đang dùng IP mà mình định dùng k
     bool is_probe()      const { return is_request() && sender_ip == "0.0.0.0"; }
 };
 

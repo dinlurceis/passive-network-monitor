@@ -4,12 +4,14 @@
 
 namespace pnads {
 
-// DHCP fixed header offsets (all before magic cookie at 236):
-// op(1) htype(1) hlen(1) hops(1) xid(4) secs(2) flags(2)
-// ciaddr(4) yiaddr(4) siaddr(4) giaddr(4) chaddr(16)
+// DHCP dài ít nhất 240 byte (236 byte header cố định + 4 byte magic cookie)
+// header:
+// op(1) - opcode, htype(1) - hardware type, hlen(1) - hardware len, hops(1) xid(4) secs(2) flags(2)
+// ciaddr(4) - current ip, yiaddr(4) - ip server chuẩn bị cho client, siaddr(4) - server ip, giaddr(4)
+// chaddr(16) - client hardware address
 // sname(64) file(128) → total 236 bytes before magic cookie
 
-constexpr size_t DHCP_MIN_LEN     = 240;  // up to and including magic cookie
+constexpr size_t DHCP_MIN_LEN     = 240;
 constexpr size_t DHCP_OPTIONS_OFF = 240;
 
 static std::string mac_bytes_to_str(const uint8_t* b) {
@@ -34,14 +36,14 @@ std::string dhcp_msg_type_str(DhcpMsgType t) {
 std::optional<DhcpInfo> parse_dhcp(const uint8_t* data, size_t len) {
     if (len < DHCP_MIN_LEN) return std::nullopt;
 
-    // Validate magic cookie at offset 236
+    // Kiểm tra magic cookie
     BinaryReader mc(data + 236, 4);
     auto cookie = mc.read_u32();
     if (!cookie || *cookie != DHCP_MAGIC_COOKIE) return std::nullopt;
 
     DhcpInfo info{};
 
-    // op field: 1=BOOTREQUEST, 2=BOOTREPLY
+    // opcode: 1=BOOTREQUEST (gửi từ client), 2=BOOTREPLY (gửi từ server)
     info.is_from_server = (data[0] == 2);
 
     // htype=1 (Ethernet), hlen=6 (MAC)
@@ -68,7 +70,7 @@ std::optional<DhcpInfo> parse_dhcp(const uint8_t* data, size_t len) {
         if (s) info.server_ip = *s;
     }
 
-    // Parse options (TLV after magic cookie)
+    // Parse options (TLV - Type Length Value sau magic cookie)
     BinaryReader r(data + DHCP_OPTIONS_OFF, len - DHCP_OPTIONS_OFF);
     while (r.remaining() > 0) {
         auto code_opt = r.read_u8();
@@ -76,7 +78,7 @@ std::optional<DhcpInfo> parse_dhcp(const uint8_t* data, size_t len) {
         uint8_t code = *code_opt;
 
         if (code == 255) break;  // END
-        if (code == 0)  continue; // PAD
+        if (code == 0)  continue; // PAD (đệm) -> bỏ qua
 
         auto len_opt = r.read_u8();
         if (!len_opt) break;
@@ -91,9 +93,9 @@ std::optional<DhcpInfo> parse_dhcp(const uint8_t* data, size_t len) {
         switch (code) {
             case 53:  // DHCP Message Type
                 if (!opt_val.empty()) {
-                    uint8_t mt = opt_val[0];
-                    if (mt >= 1 && mt <= 8)
-                        info.msg_type = static_cast<DhcpMsgType>(mt);
+                    uint8_t message_type = opt_val[0];
+                    if (message_type >= 1 && message_type <= 8)
+                        info.msg_type = static_cast<DhcpMsgType>(message_type);
                 }
                 break;
 

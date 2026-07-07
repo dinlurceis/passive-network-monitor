@@ -56,4 +56,27 @@ std::optional<std::string> OuiLookup::lookup(const std::string& mac) const {
     return std::nullopt;
 }
 
+// Bit 1 (LSB) của byte đầu tiên MAC = 1 → "Locally Administered Address"
+// IEEE 802 quy định: bit 1 = U/L bit (0 = globally unique OUI, 1 = locally administered)
+// iOS 14+, Android 10+, Windows 10+ dùng LAA cho MAC randomization khi scan Wi-Fi.
+bool OuiLookup::is_randomized_mac(const std::string& mac) {
+    if (mac.size() < 2) return false;
+    // Parse first byte from hex string (first 2 chars)
+    char* end = nullptr;
+    unsigned long first_byte = std::strtoul(mac.c_str(), &end, 16);
+    if (end == mac.c_str()) return false;
+    // Bit thứ 2 = LAA (Locally Administered Address)
+    return (first_byte & 0x02) != 0;
+}
+
+// Bit 0 (LSB) của byte đầu tiên MAC = 1 → multicast
+// FF:FF:FF:FF:FF:FF là broadcast (all bits = 1)
+bool OuiLookup::is_multicast_mac(const std::string& mac) {
+    if (mac.size() < 2) return false;
+    char* end = nullptr;
+    unsigned long first_byte = std::strtoul(mac.c_str(), &end, 16);
+    if (end == mac.c_str()) return false;
+    return (first_byte & 0x01) != 0;
+}
+
 } // namespace pnads

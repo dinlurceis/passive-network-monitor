@@ -56,7 +56,7 @@ std::optional<std::string> BinaryReader::read_ipv6_str() {
 
 std::optional<std::string> BinaryReader::read_fixed_string(size_t len) {
     if (!has(len)) return std::nullopt;
-    // Strip trailing null bytes
+    // Cắt bỏ các byte null ở cuối
     size_t end = len;
     while (end > 0 && data_[pos_ + end - 1] == 0) --end;
     std::string s(reinterpret_cast<const char*>(data_ + pos_), end);
@@ -78,7 +78,7 @@ bool BinaryReader::skip(size_t n) {
 }
 
 std::optional<std::string> BinaryReader::read_line() {
-    // Find "\r\n" from current position
+    // Tìm "\r\n" từ vị trí hiện tại
     for (size_t i = pos_; i + 1 < len_; ++i) {
         if (data_[i] == '\r' && data_[i + 1] == '\n') {
             std::string line(reinterpret_cast<const char*>(data_ + pos_), i - pos_);
@@ -86,7 +86,7 @@ std::optional<std::string> BinaryReader::read_line() {
             return line;
         }
     }
-    // No \r\n found — try just \n
+    // K tìm thấy \r\n found —> tìm \n
     for (size_t i = pos_; i < len_; ++i) {
         if (data_[i] == '\n') {
             std::string line(reinterpret_cast<const char*>(data_ + pos_), i - pos_);

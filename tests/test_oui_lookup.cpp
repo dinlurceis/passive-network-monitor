@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "enrichment/oui_lookup.hpp"
-#include "enrichment/os_fingerprint.hpp"
+
 #include <fstream>
 #include <filesystem>
 
@@ -12,7 +12,7 @@ TEST(OuiLookup, FileNotFound) {
     EXPECT_FALSE(oui.loaded());
     EXPECT_EQ(oui.size(), 0u);
     // lookup vẫn chạy được, trả "Unknown"
-    EXPECT_EQ(oui.lookup("AA:BB:CC:DD:EE:FF"), "Unknown");
+    EXPECT_EQ(oui.lookup("AA:BB:CC:DD:EE:FF").value_or("Unknown"), "Unknown");
 }
 
 // Test với file CSV giả lập tạo tạm
@@ -36,7 +36,7 @@ TEST(OuiLookup, BasicLookup) {
     EXPECT_EQ(oui.lookup("AA:BB:CC:DD:EE:FF"), "Test Vendor");
 
     // MAC không có trong database → "Unknown"
-    EXPECT_EQ(oui.lookup("FF:EE:DD:CC:BB:AA"), "Unknown");
+    EXPECT_EQ(oui.lookup("FF:EE:DD:CC:BB:AA").value_or("Unknown"), "Unknown");
 
     // Dọn dẹp
     std::filesystem::remove(tmp_path);
@@ -65,47 +65,7 @@ TEST(OuiLookup, CaseInsensitive) {
 TEST(OuiLookup, ShortMac) {
     pnads::OuiLookup oui("/nonexistent.csv");
     // MAC dưới 8 ký tự → "Unknown" không crash
-    EXPECT_EQ(oui.lookup("AA:BB"), "Unknown");
-    EXPECT_EQ(oui.lookup(""), "Unknown");
+    EXPECT_EQ(oui.lookup("AA:BB").value_or("Unknown"), "Unknown");
+    EXPECT_EQ(oui.lookup("").value_or("Unknown"), "Unknown");
 }
 
-// ─── OsFingerprint Tests ──────────────────────────────────────────────────────
-
-// Danh sách option 55 rỗng → Unknown
-TEST(OsFingerprint, EmptyOptions) {
-    std::vector<uint8_t> empty;
-    auto fp = pnads::fingerprint_from_dhcp_options(empty);
-    EXPECT_EQ(fp.os_family, "Unknown");
-    EXPECT_FLOAT_EQ(fp.confidence, 0.0f);
-}
-
-// Signature Windows 7/10: {1,15,3,6,44,46,47,31,33,121,249,43,252}
-TEST(OsFingerprint, WindowsSignature) {
-    std::vector<uint8_t> win_options = {1,15,3,6,44,46,47,31,33,121,249,43,252};
-    auto fp = pnads::fingerprint_from_dhcp_options(win_options);
-    EXPECT_EQ(fp.os_family, "Windows");
-    EXPECT_GE(fp.confidence, 0.5f);
-}
-
-// Signature macOS: {1,121,3,6,15,119,252,95,44,46}
-TEST(OsFingerprint, MacOsSignature) {
-    std::vector<uint8_t> mac_options = {1,121,3,6,15,119,252,95,44,46};
-    auto fp = pnads::fingerprint_from_dhcp_options(mac_options);
-    EXPECT_EQ(fp.os_family, "macOS");
-    EXPECT_GE(fp.confidence, 0.5f);
-}
-
-// Signature Android: {1,33,3,6,15,28,51,58,59}
-TEST(OsFingerprint, AndroidSignature) {
-    std::vector<uint8_t> android_options = {1,33,3,6,15,28,51,58,59};
-    auto fp = pnads::fingerprint_from_dhcp_options(android_options);
-    EXPECT_EQ(fp.os_family, "Android");
-    EXPECT_GE(fp.confidence, 0.5f);
-}
-
-// Option list hoàn toàn ngẫu nhiên → Unknown (điểm quá thấp)
-TEST(OsFingerprint, UnknownSignature) {
-    std::vector<uint8_t> unknown = {200, 201, 202, 203};
-    auto fp = pnads::fingerprint_from_dhcp_options(unknown);
-    EXPECT_EQ(fp.os_family, "Unknown");
-}

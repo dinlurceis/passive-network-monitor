@@ -5,7 +5,6 @@
 #include "parsers/mdns_parser.hpp"
 #include "parsers/ssdp_parser.hpp"
 #include "parsers/dns_message.hpp"
-#include "parsers/http_parser.hpp"
 #include "db/db_manager.hpp"
 #include "enrichment/oui_lookup.hpp"
 #include "enrichment/os_fingerprint.hpp"
@@ -32,13 +31,15 @@ public:
     void process_mdns(const MdnsRecord& rec);
     void process_ssdp(const SsdpMessage& msg, const std::string& mac_hint = "");
     void process_dns(const DnsMessage& msg, const std::string& src_ip);
-    void process_http_ua(const std::string& src_ip, const std::string& user_agent);
 
     // Đánh dấu asset không còn active nếu quá timeout
     void expire_assets(int timeout_sec);
 
     // Detection engine callback — gọi sau mỗi event
     void set_event_callback(EventCallback cb) { on_event_ = std::move(cb); }
+
+    // Xả các event đang chờ vào DB
+    void flush_events();
 
 private:
     DbManager&     db_;
@@ -48,6 +49,12 @@ private:
 
     // cache chỉ đọc/ghi bởi capture thread — an toàn không cần mutex
     std::unordered_map<std::string, Asset> cache_;  // MAC → Asset
+    std::unordered_map<std::string, std::string> ip_to_mac_; // IP → MAC
+    std::unordered_map<int, TimePoint> last_db_update_; // id → last update
+    std::vector<DbManager::EventBuffer> pending_events_; // Queue for batch insert
+    // key = "asset_id:event_type", value = last log time
+    // Tránh log lặp lại các event không có thay đổi (dns_query, mdns_announce, ssdp_notify)
+    std::unordered_map<std::string, TimePoint> event_debounce_;
 
     // Upsert asset và trả về reference vào cache (không bao giờ null sau call)
     Asset& upsert_asset(const std::string& mac, const std::string& ip,

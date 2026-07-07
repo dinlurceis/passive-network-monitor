@@ -6,33 +6,34 @@
 namespace pnads {
 
 std::optional<EthernetFrame> parse_ethernet(const uint8_t* data, size_t len) {
-    // Minimum: 6 (dst) + 6 (src) + 2 (ethertype) = 14 bytes
+    // Tối thiểu: 6 (dst) + 6 (src) + 2 (ethertype) = 14 byte
     if (len < ETH_HEADER_LEN) {
         return std::nullopt;
     }
 
     EthernetFrame frame{};
 
-    // Destination MAC (bytes 0–5)
+    // MAC đích (byte 0-5)
     std::memcpy(frame.dst_mac.data(), data, ETH_ADDR_LEN);
-    // Source MAC (bytes 6–11)
+    // MAC nguồn (byte 6-11)
     std::memcpy(frame.src_mac.data(), data + ETH_ADDR_LEN, ETH_ADDR_LEN);
 
-    // EtherType (bytes 12–13), big-endian
+    // EtherType (byte 12-13), big-endian
     uint16_t ethertype = static_cast<uint16_t>((data[12] << 8) | data[13]);
 
     size_t payload_offset = ETH_HEADER_LEN;
 
-    // Handle 802.1Q VLAN tag: ethertype == 0x8100, followed by 4-byte tag
-    // After tag: real ethertype at offset 16
+    // Xử lý VLAN tag 802.1Q: ethertype == 0x8100, theo sau là tag 4 byte
+    // Sau tag: ethertype thật nằm ở offset 16
     if (ethertype == ETHERTYPE_VLAN) {
-        // Need at least 4 more bytes for the VLAN tag
+        // Cần thêm ít nhất 4 byte nữa cho VLAN tag
         if (len < ETH_HEADER_LEN + 4) {
             return std::nullopt;
         }
-        // VLAN tag: 2 bytes TCI (ignored) + 2 bytes real ethertype
+        // VLAN tag gồm 2 byte TCI (không quan tâm, bỏ qua byte 14 15) + 2 byte ethertype
+        // chỉ quan tâm 2 byte ethertype
         ethertype = static_cast<uint16_t>((data[16] << 8) | data[17]);
-        payload_offset = ETH_HEADER_LEN + 4;  // 18 bytes total
+        payload_offset = ETH_HEADER_LEN + 4;  // tổng cộng 18 byte
     }
 
     frame.ethertype   = ethertype;
@@ -48,17 +49,18 @@ std::string mac_to_string(const std::array<uint8_t, ETH_ADDR_LEN>& mac) {
 }
 
 bool string_to_mac(const std::string& s, std::array<uint8_t, ETH_ADDR_LEN>& out) {
-    // Expect format "AA:BB:CC:DD:EE:FF" (17 chars)
+    // Định dạng mong đợi "AA:BB:CC:DD:EE:FF" (17 ký tự)
     if (s.size() != 17) {
         return false;
     }
     for (int i = 0; i < 6; ++i) {
         const char* p = s.c_str() + i * 3;
-        // Check separator
+        // Check dấu ":" có đúng vị trí k
         if (i < 5 && s[i * 3 + 2] != ':') {
             return false;
         }
         char* endptr = nullptr;
+        // strtoul chuyển đổi cụm ký tự thành số nguyên -> check có vượt quá 0xFF (1 byte) k
         unsigned long val = std::strtoul(p, &endptr, 16);
         if (endptr != p + 2 || val > 0xFF) {
             return false;

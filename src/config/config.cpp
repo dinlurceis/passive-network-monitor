@@ -21,7 +21,7 @@ static void load_dotenv(const std::string& path = ".env") {
         std::string key = line.substr(0, pos);
         std::string val = line.substr(pos + 1);
 
-        // Strip whitespace and quotes
+        // Cắt bỏ khoảng trắng và dấu nháy
         key.erase(0, key.find_first_not_of(" \t\r\n"));
         key.erase(key.find_last_not_of(" \t\r\n") + 1);
         val.erase(0, val.find_first_not_of(" \t\r\n\"'"));
@@ -53,9 +53,9 @@ Config Config::from_env() {
     c.db_name                 = getenv_or("DB_NAME",     "pnads");
     c.db_user                 = getenv_or("DB_USER",     "pnads");
     c.db_password             = getenv_or("DB_PASSWORD", "secret");
-    c.pcap_file               = getenv_or("PCAP_FILE",   "");
-    c.interface               = getenv_or("INTERFACE",   "eth0");
-    c.log_level               = getenv_or("LOG_LEVEL",   "info");
+    c.pcap_file     = getenv_or("PCAP_FILE",   "");
+    c.interface     = getenv_or("INTERFACE",   "eth0");
+    c.log_level     = getenv_or("LOG_LEVEL",   "info");
     c.oui_file                = getenv_or("OUI_FILE",    "data/oui.csv");
     c.api_port                = getenv_int("API_PORT",   8080);
     c.asset_timeout_sec       = getenv_int("ASSET_TIMEOUT_SEC",       300);

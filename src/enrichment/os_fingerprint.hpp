@@ -10,7 +10,7 @@ namespace pnads {
 struct FingerprintSignals {
     std::optional<uint8_t>     observed_ttl;        // từ IPv4 header
     std::vector<uint8_t>       dhcp_param_list;      // DHCP option 55
-    std::optional<std::string> http_user_agent;
+    std::optional<std::string> tls_sni;              // từ TLS Client Hello port 443 (SNI hostname)
     std::optional<std::string> mdns_service_type;    // "_airplay._tcp" ...
     std::optional<std::string> ssdp_server_header;
 };

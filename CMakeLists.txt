@@ -34,11 +34,9 @@ set(SOURCES
     src/parsers/dhcp_parser.cpp
     src/parsers/ipv4_parser.cpp
     src/parsers/udp_parser.cpp
-    src/parsers/tcp_parser.cpp
     src/parsers/dns_message.cpp
     src/parsers/mdns_parser.cpp
     src/parsers/ssdp_parser.cpp
-    src/parsers/http_parser.cpp
     src/tracker/asset_tracker.cpp
     src/db/db_manager.cpp
     src/enrichment/oui_lookup.cpp

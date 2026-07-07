@@ -7,11 +7,9 @@ set(COMMON_PARSER_SOURCES
     ${CMAKE_SOURCE_DIR}/src/parsers/dhcp_parser.cpp
     ${CMAKE_SOURCE_DIR}/src/parsers/ipv4_parser.cpp
     ${CMAKE_SOURCE_DIR}/src/parsers/udp_parser.cpp
-    ${CMAKE_SOURCE_DIR}/src/parsers/tcp_parser.cpp
     ${CMAKE_SOURCE_DIR}/src/parsers/dns_message.cpp
     ${CMAKE_SOURCE_DIR}/src/parsers/mdns_parser.cpp
     ${CMAKE_SOURCE_DIR}/src/parsers/ssdp_parser.cpp
-    ${CMAKE_SOURCE_DIR}/src/parsers/http_parser.cpp
     ${CMAKE_SOURCE_DIR}/src/config/config.cpp
 )
 
@@ -29,7 +27,9 @@ add_pnads_test(test_arp_parser)
 add_pnads_test(test_dhcp_parser)
 add_pnads_test(test_mdns_parser)
 add_pnads_test(test_ssdp_parser)
-add_pnads_test(test_http_parser)
+add_pnads_test(test_ethernet_parser)
+add_pnads_test(test_ipv4_parser)
+add_pnads_test(test_udp_parser)
 
 # ── Enrichment tests (no DB) ──────────────────────────────────────────────────
 add_executable(test_oui_lookup
@@ -52,20 +52,25 @@ target_include_directories(test_os_fingerprint PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(test_os_fingerprint PRIVATE GTest::gtest_main spdlog::spdlog)
 add_test(NAME test_os_fingerprint COMMAND test_os_fingerprint)
 
+find_package(libpqxx QUIET)
+if(NOT libpqxx_FOUND)
+    pkg_check_modules(PQXX QUIET libpqxx)
+endif()
+
 # ── Detection rules test (no DB) ──────────────────────────────────────────────
 add_executable(test_detection_rules
     test_detection_rules.cpp
     ${CMAKE_SOURCE_DIR}/src/detection/rule_new_device.cpp
 )
 target_include_directories(test_detection_rules PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(test_detection_rules PRIVATE GTest::gtest_main spdlog::spdlog)
+target_link_libraries(test_detection_rules PRIVATE 
+    GTest::gtest_main 
+    spdlog::spdlog
+    $<IF:$<TARGET_EXISTS:libpqxx::pqxx>,libpqxx::pqxx,${PQXX_LIBRARIES}>
+)
 add_test(NAME test_detection_rules COMMAND test_detection_rules)
 
 # ── Asset tracker test (requires PostgreSQL at runtime) ───────────────────────
-find_package(libpqxx QUIET)
-if(NOT libpqxx_FOUND)
-    pkg_check_modules(PQXX QUIET libpqxx)
-endif()
 
 find_package(PostgreSQL QUIET)
 

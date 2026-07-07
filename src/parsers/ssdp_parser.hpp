@@ -2,6 +2,7 @@
 #include <string>
 #include <map>
 #include <optional>
+#include <cstdint>
 
 namespace pnads {
 
@@ -11,6 +12,7 @@ struct SsdpMessage {
     std::string method;                         // "NOTIFY" | "M-SEARCH" | "200 OK"
     std::map<std::string, std::string> headers; // SERVER, USN, LOCATION, ST, NT...
     std::string src_ip;
+    std::string location;  // Header LOCATION: http://IP:PORT/device.xml (UPnP device description URL)
     // Header SERVER thường có dạng "Linux/3.x UPnP/1.0 MyDevice/1.0"
     // → dùng cho vendor hint và os_fingerprint
 };

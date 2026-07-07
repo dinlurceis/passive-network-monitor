@@ -185,6 +185,8 @@ h2 { font-size: 1.25rem; margin-bottom: 1rem; }
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn-danger { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.3); color: var(--danger); }
 .btn-danger:hover { background: rgba(239, 68, 68, 0.3); }
+.btn-warning { background: rgba(245, 158, 11, 0.18); border-color: rgba(245, 158, 11, 0.3); color: #f59e0b; }
+.btn-warning:hover { background: rgba(245, 158, 11, 0.3); }
 .btn-icon { padding: 0.5rem; border-radius: 50%; }
 
 /* Grid Layouts */
@@ -354,3 +356,253 @@ tr:hover td { background: rgba(255, 255, 255, 0.02); }
 .justify-between { justify-content: space-between; }
 .items-center { align-items: center; }
 .gap-2 { gap: 0.5rem; }
+
+/* Real-time Animations */
+@keyframes popIn {
+    0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-pop-in {
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes highlightRow {
+    0% { background: rgba(59, 130, 246, 0.3); }
+    100% { background: transparent; }
+}
+.row-highlight {
+    animation: highlightRow 2s ease-out;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    z-index: 9999;
+    pointer-events: none;
+}
+.toast {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-primary);
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    transition: opacity 0.3s, transform 0.3s;
+    min-width: 300px;
+}
+.toast-title { font-weight: 600; font-size: 0.875rem; display: flex; align-items: center; gap: 0.5rem; }
+.toast-desc { font-size: 0.75rem; color: var(--text-secondary); }
+.toast.toast-danger { border-left-color: var(--danger); }
+.toast.toast-warning { border-left-color: var(--warning); }
+.toast.toast-success { border-left-color: var(--success); }
+.toast.hiding { opacity: 0; transform: translateX(120%); }
+
+@keyframes slideInRight {
+    0% { opacity: 0; transform: translateX(100%); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Pagination
+   ───────────────────────────────────────────────────────────────────────────── */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+.pg-btn {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.pg-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--text-secondary);
+}
+.pg-btn.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #fff;
+    font-weight: 600;
+}
+.pg-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.pg-ellipsis {
+    color: var(--text-secondary);
+    padding: 0 0.25rem;
+}
+.pg-info {
+    margin-left: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PCAP Upload Modal & Status
+   ───────────────────────────────────────────────────────────────────────────── */
+.pcap-status-card {
+    margin-top: auto;
+    margin-bottom: 1rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+}
+.pcap-status-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+.pcap-mode-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+.pcap-idle     { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+.pcap-loop     { background: rgba(16, 185, 129, 0.2);  color: var(--success); }
+.pcap-priority { background: rgba(245, 158, 11, 0.2);  color: var(--warning); }
+.pcap-current-file {
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    word-break: break-all;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.btn-upload {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: var(--accent-primary);
+    margin-right: 1rem;
+}
+.btn-upload:hover {
+    background: rgba(59, 130, 246, 0.25);
+}
+
+.upload-info-box {
+    background: rgba(59, 130, 246, 0.1);
+    border-left: 4px solid var(--accent-primary);
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+.upload-info-box i { color: var(--accent-primary); margin-top: 0.1rem; }
+
+.upload-drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    transition: all 0.2s;
+    background: rgba(0, 0, 0, 0.2);
+    margin-bottom: 1rem;
+}
+.upload-drop-zone.drag-over {
+    border-color: var(--accent-primary);
+    background: rgba(59, 130, 246, 0.1);
+}
+.upload-icon {
+    font-size: 2.5rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+.upload-drop-zone.drag-over .upload-icon { color: var(--accent-primary); }
+.upload-drop-text { font-size: 0.875rem; color: var(--text-secondary); }
+.upload-drop-text code { background: rgba(255,255,255,0.1); padding: 0.1rem 0.3rem; border-radius: 4px; }
+
+.upload-file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(0,0,0,0.2);
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--success);
+}
+.upload-file-size { color: var(--text-secondary); font-size: 0.75rem; margin-left: auto; }
+
+.upload-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.upload-status-label { font-size: 0.875rem; color: var(--text-secondary); width: 100px; }
+.upload-status-value { font-size: 0.875rem; color: #fff; font-family: monospace; }
+
+.upload-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.progress-bar-wrap {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+.progress-bar-fill {
+    height: 100%;
+    background: var(--accent-primary);
+    width: 0%;
+    transition: width 0.2s ease;
+}
+.upload-progress-text { font-size: 0.75rem; color: var(--text-secondary); text-align: right; }
+
+.upload-success, .upload-error {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+}
+.upload-success { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); }
+.upload-success i { color: var(--success); margin-top: 0.1rem; }
+.upload-error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); }
+.upload-error i { color: var(--danger); margin-top: 0.1rem; }

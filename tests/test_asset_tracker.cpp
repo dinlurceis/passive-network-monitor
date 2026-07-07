@@ -10,7 +10,7 @@
 // that would be fed into the tracker.
 //
 // For full integration tests, run with a live DB:
-//   DB_HOST=localhost DB_USER=netmon DB_PASSWORD=secret DB_NAME=netmon
+//   DB_HOST=localhost DB_USER=pnads DB_PASSWORD=secret DB_NAME=pnads
 //   ./build/debug/tests/test_asset_tracker
 
 // ─── Parser → Tracker data flow tests ───────────────────────────────────────
