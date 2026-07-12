@@ -66,27 +66,13 @@ static float dhcp_similarity(const std::vector<uint8_t>& observed,
     return static_cast<float>(matches) / static_cast<float>(denom);
 }
 
-// TTL heuristic
 // TTL heuristic: Linux/macOS/iOS/Android đều dùng initial TTL=64 — không phân biệt được.
 // Windows dùng 128, network gear dùng 255.
-// ⚠️  Chỉ dùng để phân biệt Windows vs Unix-family, không phân biệt được các Unix OS với nhau.
+// Chỉ dùng để phân biệt Windows vs Unix-family, không phân biệt được các Unix OS với nhau.
 static std::string guess_from_ttl(uint8_t ttl) {
     if      (ttl <= 64)  return "Unix-family";  // Linux, macOS, iOS, Android — không phân biệt được qua TTL
     else if (ttl <= 128) return "Windows";
     else                 return "Network";       // BSD / Cisco / router / thiết bị mạng
-}
-
-// HTTP User-Agent rules
-static std::string guess_from_ua(const std::string& ua) {
-    if (ua.find("Windows NT") != std::string::npos)  return "Windows";
-    if (ua.find("Mac OS X")   != std::string::npos)  return "macOS";
-    if (ua.find("iPhone OS")  != std::string::npos)  return "iOS";
-    if (ua.find("iPad")       != std::string::npos)  return "iOS";
-    if (ua.find("Android")    != std::string::npos)  return "Android";
-    if (ua.find("CrOS")       != std::string::npos)  return "ChromeOS";
-    if (ua.find("X11; Linux") != std::string::npos)  return "Linux";
-    if (ua.find("Linux")      != std::string::npos)  return "Linux";
-    return "";
 }
 
 // mDNS / SSDP IoT rules

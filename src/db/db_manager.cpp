@@ -117,8 +117,20 @@ Asset DbManager::row_to_asset(const pqxx::row& row) {
     a.is_active    = row["is_active"].as<bool>();
     a.is_trusted   = row.column_number("is_trusted") >= 0
                      ? row["is_trusted"].as<bool>() : false;
-    a.first_seen   = Clock::now();
-    a.last_seen    = Clock::now();
+
+    if (row.column_number("first_seen_ts") >= 0 && !row["first_seen_ts"].is_null()) {
+        double fs = row["first_seen_ts"].as<double>();
+        a.first_seen = TimePoint(std::chrono::duration_cast<std::chrono::system_clock::duration>(std::chrono::duration<double>(fs)));
+    } else {
+        a.first_seen = Clock::now();
+    }
+
+    if (row.column_number("last_seen_ts") >= 0 && !row["last_seen_ts"].is_null()) {
+        double ls = row["last_seen_ts"].as<double>();
+        a.last_seen = TimePoint(std::chrono::duration_cast<std::chrono::system_clock::duration>(std::chrono::duration<double>(ls)));
+    } else {
+        a.last_seen = Clock::now();
+    }
     return a;
 }
 
@@ -126,7 +138,7 @@ std::optional<Asset> DbManager::find_asset_by_mac(const std::string& mac) {
     pqxx::work txn(*conn_);
     auto result = txn.exec_params(
         "SELECT id, mac, ip, hostname, vendor, os_guess, os_confidence, "
-        "is_active, is_trusted FROM assets WHERE mac = $1", mac);
+        "is_active, is_trusted, EXTRACT(EPOCH FROM first_seen) AS first_seen_ts, EXTRACT(EPOCH FROM last_seen) AS last_seen_ts FROM assets WHERE mac = $1", mac);
     txn.commit();
     if (result.empty()) return std::nullopt;
     return row_to_asset(result[0]);
@@ -136,7 +148,7 @@ std::optional<Asset> DbManager::find_asset_by_ip(const std::string& ip) {
     pqxx::work txn(*conn_);
     auto result = txn.exec_params(
         "SELECT id, mac, ip, hostname, vendor, os_guess, os_confidence, "
-        "is_active, is_trusted FROM assets WHERE ip = $1", ip);
+        "is_active, is_trusted, EXTRACT(EPOCH FROM first_seen) AS first_seen_ts, EXTRACT(EPOCH FROM last_seen) AS last_seen_ts FROM assets WHERE ip = $1", ip);
     txn.commit();
     if (result.empty()) return std::nullopt;
     return row_to_asset(result[0]);
@@ -151,7 +163,7 @@ Asset DbManager::insert_asset(const Asset& a) {
         "  SET last_seen = NOW(), "
         "      ip       = COALESCE(EXCLUDED.ip, assets.ip), "
         "      hostname = COALESCE(EXCLUDED.hostname, assets.hostname) "
-        "RETURNING id, mac, ip, hostname, vendor, os_guess, os_confidence, is_active, is_trusted",
+        "RETURNING id, mac, ip, hostname, vendor, os_guess, os_confidence, is_active, is_trusted, EXTRACT(EPOCH FROM first_seen) AS first_seen_ts, EXTRACT(EPOCH FROM last_seen) AS last_seen_ts",
         a.mac, a.ip, a.hostname, a.vendor, a.os_guess);
     txn.commit();
     if (result.empty()) throw std::runtime_error("insert_asset: no row returned");
@@ -171,7 +183,7 @@ void DbManager::update_asset(const Asset& a) {
 
 void DbManager::update_asset_last_seen(int id) {
     pqxx::work txn(*conn_);
-    txn.exec_params("UPDATE assets SET last_seen=NOW() WHERE id=$1", id);
+    txn.exec_params("UPDATE assets SET is_active=TRUE, last_seen=NOW() WHERE id=$1", id);
     txn.commit();
 }
 
@@ -383,7 +395,7 @@ void DbManager::delete_watchlist(int id) {
 std::vector<Asset> DbManager::get_all_assets(bool active_only) {
     pqxx::work txn(*conn_);
     std::string query =
-        "SELECT id, mac, ip, hostname, vendor, os_guess, os_confidence, is_active, is_trusted "
+        "SELECT id, mac, ip, hostname, vendor, os_guess, os_confidence, is_active, is_trusted, EXTRACT(EPOCH FROM first_seen) AS first_seen_ts, EXTRACT(EPOCH FROM last_seen) AS last_seen_ts "
         "FROM assets";
     if (active_only) query += " WHERE is_active=TRUE";
     query += " ORDER BY last_seen DESC";
@@ -401,7 +413,7 @@ std::vector<Asset> DbManager::get_all_assets(bool active_only) {
 std::vector<Asset> DbManager::get_assets_not_seen_since(int seconds_ago) {
     pqxx::work txn(*conn_);
     auto rows = txn.exec_params(
-        "SELECT id, mac, ip, hostname, vendor, os_guess, os_confidence, is_active, is_trusted "
+        "SELECT id, mac, ip, hostname, vendor, os_guess, os_confidence, is_active, is_trusted, EXTRACT(EPOCH FROM first_seen) AS first_seen_ts, EXTRACT(EPOCH FROM last_seen) AS last_seen_ts "
         "FROM assets WHERE is_active=TRUE "
         "AND last_seen < NOW() - make_interval(secs => $1)",
         seconds_ago);
@@ -428,7 +440,7 @@ PageResult<Asset> DbManager::get_all_assets_paged(bool active_only, int page, in
 
     // DATA
     std::string data_sql =
-        "SELECT id, mac, ip, hostname, vendor, os_guess, os_confidence, is_active, is_trusted "
+        "SELECT id, mac, ip, hostname, vendor, os_guess, os_confidence, is_active, is_trusted, EXTRACT(EPOCH FROM first_seen) AS first_seen_ts, EXTRACT(EPOCH FROM last_seen) AS last_seen_ts "
         "FROM assets";
     if (active_only) data_sql += " WHERE is_active=TRUE";
     data_sql += " ORDER BY last_seen DESC LIMIT $1 OFFSET $2";
@@ -580,7 +592,7 @@ std::vector<TimeseriesBucket> DbManager::get_timeseries(const std::string& inter
     std::string group_col  = (group_by == "protocol") ? "protocol" : "event_type";
 
     std::string query =
-        "SELECT date_trunc($1, e.ts) AS bucket, e." + group_col + " AS key, "
+        "SELECT to_char(date_trunc($1, e.ts AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM-DD\"T\"HH24:MI:SS+07:00') AS bucket, e." + group_col + " AS key, "
         "COUNT(*) AS cnt FROM events e ";
 
     if (!asset_mac.empty()) {

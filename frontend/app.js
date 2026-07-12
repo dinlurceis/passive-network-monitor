@@ -41,9 +41,15 @@ function formatRelativeTime(isoString) {
     if (!isoString) return 'Never';
     const date = new Date(isoString);
     const now = new Date();
-    const diffSecs = Math.floor((now - date) / 1000);
+    const diffMs = Math.abs(now - date);
     
-    if (diffSecs < 60) return `${diffSecs}s ago`;
+    if (diffMs < 60000) {
+        const s = Math.floor(diffMs / 1000);
+        if (s > 0) return `${s}s ago`;
+        return `${diffMs}ms ago`;
+    }
+    
+    const diffSecs = Math.floor(diffMs / 1000);
     if (diffSecs < 3600) return `${Math.floor(diffSecs/60)}m ago`;
     if (diffSecs < 86400) return `${Math.floor(diffSecs/3600)}h ago`;
     return `${Math.floor(diffSecs/86400)}d ago`;

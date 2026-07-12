@@ -13,8 +13,7 @@ CREATE TABLE IF NOT EXISTS assets (
     first_seen     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_seen      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     is_active      BOOLEAN NOT NULL DEFAULT TRUE,
-    is_trusted     BOOLEAN NOT NULL DEFAULT FALSE,
-    metadata       JSONB NOT NULL DEFAULT '{}'
+    is_trusted     BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -23,7 +22,7 @@ CREATE TABLE IF NOT EXISTS events (
     event_type VARCHAR(32) NOT NULL,
     -- 'new_asset' | 'ip_change' | 'arp_announce' | 'arp_probe'
     -- 'dhcp_discover' | 'dhcp_request' | 'dhcp_ack'
-    -- 'mdns_announce' | 'ssdp_notify' | 'dns_query' | 'http_useragent'
+    -- 'mdns_announce' | 'ssdp_notify' | 'dns_query'
     -- 'asset_gone'
     protocol   VARCHAR(16) NOT NULL DEFAULT 'unknown',
     old_value  TEXT,

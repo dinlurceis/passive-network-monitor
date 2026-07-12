@@ -1,6 +1,5 @@
 #include "detection/rule_arp_spoofing.hpp"
 #include <format>
-#include <algorithm>
 
 namespace pnads {
 

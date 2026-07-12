@@ -26,6 +26,16 @@ namespace pnads {
 AssetTracker::AssetTracker(DbManager& db, OuiLookup& oui, OsFingerprint& fp)
     : db_(db), oui_(oui), fp_(fp) {
     pending_events_.reserve(1024);
+    
+    // Load existing assets from DB to cache
+    auto assets = db_.get_all_assets(false);
+    for (const auto& a : assets) {
+        cache_[a.mac] = a;
+        if (!a.ip.empty()) {
+            ip_to_mac_[a.ip] = a.mac;
+        }
+    }
+    spdlog::info("Loaded {} assets from DB into tracker cache", assets.size());
 }
 
 // upsert_asset
@@ -50,11 +60,20 @@ Asset& AssetTracker::upsert_asset(const std::string& mac, const std::string& ip,
             last_db_update_[saved.id] = now;
         } else {
             existing->last_seen = now;
-            auto last_it = last_db_update_.find(existing->id);
-            if (last_it == last_db_update_.end() || std::chrono::duration_cast<std::chrono::seconds>(now - last_it->second).count() > 10) {
+            
+            if (!existing->is_active) {
+                existing->is_active = true;
                 db_.update_asset_last_seen(existing->id);
                 last_db_update_[existing->id] = now;
+                log_event(*existing, "asset_returned", "system");
+            } else {
+                auto last_it = last_db_update_.find(existing->id);
+                if (last_it == last_db_update_.end() || std::chrono::duration_cast<std::chrono::seconds>(now - last_it->second).count() > 10) {
+                    db_.update_asset_last_seen(existing->id);
+                    last_db_update_[existing->id] = now;
+                }
             }
+
             auto& via = existing->discovered_via;
             if (std::find(via.begin(), via.end(), source_protocol) == via.end()) {
                 via.push_back(source_protocol);
@@ -65,15 +84,21 @@ Asset& AssetTracker::upsert_asset(const std::string& mac, const std::string& ip,
     } else {
         Asset& cached = it->second;
         cached.last_seen = now;
-        auto last_it = last_db_update_.find(cached.id);
-        if (last_it == last_db_update_.end() || std::chrono::duration_cast<std::chrono::seconds>(now - last_it->second).count() > 10) {
+        if (!cached.is_active) {
+            cached.is_active = true;
+            // update_asset_last_seen giờ đây sẽ set cả is_active=TRUE trên DB
             db_.update_asset_last_seen(cached.id);
             last_db_update_[cached.id] = now;
+            log_event(cached, "asset_returned", "system");
+        } else {
+            auto last_it = last_db_update_.find(cached.id);
+            if (last_it == last_db_update_.end() || std::chrono::duration_cast<std::chrono::seconds>(now - last_it->second).count() > 10) {
+                db_.update_asset_last_seen(cached.id);
+                last_db_update_[cached.id] = now;
+            }
         }
-        if (!ip.empty() && ip != cached.ip) {
-            db_.update_asset_ip(cached.id, ip);
-            cached.ip = ip;
-        }
+        // Không tự động update IP ở đây nữa để caller (process_arp) có thể detect IP change
+        // và tự trigger db_.update_asset_ip + log_event("ip_change")
         auto& via = cached.discovered_via;
         if (std::find(via.begin(), via.end(), source_protocol) == via.end()) {
             via.push_back(source_protocol);
@@ -183,6 +208,7 @@ void AssetTracker::process_arp(const ArpFrame& frame) {
             // Kiểm tra nếu IP thay đổi
             if (!ip.empty() && asset.ip != ip) {
                 std::string old_ip = asset.ip;
+                db_.update_asset_ip(asset.id, ip);
                 asset.ip = ip;
                 log_event(asset, "ip_change", "arp", old_ip, ip);
             }
@@ -403,7 +429,12 @@ void AssetTracker::expire_assets(int timeout_sec) {
         for (const auto& a : stale) {
             db_.set_asset_inactive(a.id);
             db_.insert_event(a.id, "asset_gone", "system");
-            cache_.erase(a.mac);
+            
+            auto it = cache_.find(a.mac);
+            if (it != cache_.end()) {
+                it->second.is_active = false;
+            }
+            
             spdlog::warn("[asset_gone] MAC={} IP={}", a.mac, a.ip);
         }
     } catch (const std::exception& e) {

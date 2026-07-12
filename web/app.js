@@ -21,7 +21,14 @@ function fmtDate(ts, fmt = 'DD/MM HH:mm:ss') {
 function fmtRelative(ts) {
     if (!ts) return '—';
     const m = moment(ts);
-    return m.isValid() ? m.fromNow() : '—';
+    if (!m.isValid()) return '—';
+    const diffMs = Math.abs(moment().diff(m));
+    if (diffMs < 60000) {
+        const s = Math.floor(diffMs / 1000);
+        if (s > 0) return `${s}s ago`;
+        return `${diffMs}ms ago`;
+    }
+    return m.fromNow();
 }
 
 // ── Safe JSON fetch helper ────────────────────────────────────────────────────
@@ -303,10 +310,6 @@ async function renderDashboard() {
                 <h2>Events (Last 24h)</h2>
                 <canvas id="chart-events-24h"></canvas>
             </div>
-            <div class="card glass">
-                <h2>Events (Last 7 Days)</h2>
-                <canvas id="chart-events-7d"></canvas>
-            </div>
         </div>`;
 
     try {
@@ -317,7 +320,6 @@ async function renderDashboard() {
         document.getElementById('stat-total-events').textContent  = stats.total_events;
         document.getElementById('stat-unacked-alerts').textContent= stats.alerts_unacknowledged;
         renderTimeseriesChart('chart-events-24h', 'hour', '24h');
-        renderTimeseriesChart('chart-events-7d',  'day',  '7d');
     } catch (e) { console.error('Dashboard load error', e); }
 }
 
@@ -538,7 +540,7 @@ async function loadEventsList() {
                 ssdp: '#8b5cf6', dns: '#ec4899'
             };
             tbody.innerHTML = pr.data.map(e => {
-                const detail = e.old_value && e.new_value ?
+                const detail = (e.old_value && e.new_value && e.old_value !== e.new_value) ?
                     `${e.old_value} → ${e.new_value}` : (e.new_value || e.old_value || '');
                 const pColor = protocolColors[e.protocol] || '#94a3b8';
                 return `<tr>
@@ -808,7 +810,7 @@ async function showTimeline(mac) {
                         <div class="timeline-time">${fmtDate(e.ts, 'DD/MM/YYYY HH:mm:ss')}</div>
                         <div class="timeline-title">${e.event_type} <span class="tag" style="margin-left:8px">${e.protocol}</span></div>
                         <div class="timeline-desc">
-                            ${e.old_value && e.new_value ? `${e.old_value} &rarr; ${e.new_value}` : (e.new_value || e.old_value || '')}
+                            ${(e.old_value && e.new_value && e.old_value !== e.new_value) ? `${e.old_value} &rarr; ${e.new_value}` : (e.new_value || e.old_value || '')}
                         </div>
                     </div>`).join('')}
             </div>`;

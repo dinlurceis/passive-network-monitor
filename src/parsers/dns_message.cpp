@@ -4,7 +4,7 @@
 
 namespace pnads {
 
-// Parse DNS name with pointer compression (RFC 1035 section 4.1.4)
+// Parse DNS name with pointer compression (RFC 1035)
 // base: con trỏ đầu thông điệp DNS (để giải mã pointer)
 // base_len: tổng độ dài thông điệp DNS
 // pos: vị trí hiện tại trong thông điệp (sẽ bị thay đổi)
@@ -17,15 +17,15 @@ static std::string parse_dns_name(const uint8_t* base, size_t base_len, size_t& 
         uint8_t len_byte = base[pos];
 
         if (len_byte == 0) {
-            // End of name
+            // hết name
             ++pos;
             break;
-        } else if ((len_byte & 0xC0) == 0xC0) {
+        } else if ((len_byte & 0xC0) == 0xC0) { // nếu 2 bit cao nhất có giá trị là 11 -> con trỏ nén
             // Pointer compression: next byte gives low 8 bits of offset
             if (pos + 1 >= base_len) break;
             size_t ptr = ((len_byte & 0x3F) << 8) | base[pos + 1];
             pos += 2;
-            // Follow pointer (only follow, don't update pos further from here)
+            // Follow pointer
             if (ptr >= base_len || max_jumps-- <= 0) break;
             size_t ptr_pos = ptr;
             std::string rest = parse_dns_name(base, base_len, ptr_pos);
@@ -53,13 +53,12 @@ std::optional<DnsMessage> parse_dns_message(const uint8_t* data, size_t len) {
     BinaryReader r(data, len);
     auto id    = r.read_u16();
     auto flags = r.read_u16();
-    auto qdcnt = r.read_u16();
-    auto ancnt = r.read_u16();
+    auto qcnt = r.read_u16();
+    auto acnt = r.read_u16();
     // bỏ qua nscount + arcount
     if (!r.skip(4)) return std::nullopt;
 
-    // Check only if reads failed — qdcnt=0 and ancnt=0 are valid DNS/mDNS values
-    if (!id.has_value() || !flags.has_value() || !qdcnt.has_value() || !ancnt.has_value()) return std::nullopt;
+    if (!id.has_value() || !flags.has_value() || !qcnt.has_value() || !acnt.has_value()) return std::nullopt;
 
     DnsMessage msg{};
     msg.id          = *id;
@@ -68,14 +67,14 @@ std::optional<DnsMessage> parse_dns_message(const uint8_t* data, size_t len) {
     size_t pos = r.offset();
 
     // Parse questions
-    for (uint16_t i = 0; i < *qdcnt && pos < len; ++i) {
+    for (uint16_t i = 0; i < *qcnt && pos < len; ++i) {
         std::string qname = parse_dns_name(data, len, pos);
         msg.questions.push_back(qname);
         pos += 4; // bỏ qua qtype(2) + qclass(2)
     }
 
     // Parse answers
-    for (uint16_t i = 0; i < *ancnt && pos < len; ++i) {
+    for (uint16_t i = 0; i < *acnt && pos < len; ++i) {
         std::string rname = parse_dns_name(data, len, pos);
         if (pos + 10 > len) break;
 
