@@ -1,71 +1,59 @@
-version: '3.8'
-
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: netmon_db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: netmon
+      POSTGRES_DB: pnads
+      POSTGRES_USER: pnads
       POSTGRES_PASSWORD: secret
-      POSTGRES_DB: netmon
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
-    restart: unless-stopped
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U netmon -d netmon" ]
+      test: ["CMD-SHELL", "pg_isready -U pnads"]
       interval: 5s
-      timeout: 5s
-      retries: 5
+      timeout: 3s
+      retries: 10
+
+  pnads:
+    build: .
+    container_name: pnads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      DB_HOST: "db"
+      DB_PORT: "5432"
+      DB_NAME: pnads
+      DB_USER: pnads
+      DB_PASSWORD: secret
+      LOG_LEVEL: info
+      OUI_FILE: /app/data/oui.csv
+      API_PORT: "8080"
+      PCAP_FILE: "/samples/test.pcap"
+      INTERFACE: "eth0"
+      PCAP_REPLAY_REALTIME: "true"
+    volumes:
+      - ./samples:/samples:ro
+      - ./data:/app/data:ro
+    cap_add: [NET_RAW, NET_ADMIN]
+    ports:
+      - "8080:8080"
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: netmon_pgadmin
+    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@gmail.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5050:80"
-    restart: unless-stopped
     depends_on:
-      - postgres
-
-  netmon_app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: netmon_app
-    restart: unless-stopped
-    environment:
-      - DB_HOST=postgres
-      # - DB_HOST=localhost
-      - DB_PORT=5432
-      - DB_NAME=netmon
-      - DB_USER=netmon
-      - DB_PASSWORD=secret
-      - PCAP_FILE=/samples/test.pcap
-      - LOG_LEVEL=debug
-      - API_PORT=8080
-      - OUI_FILE=/app/data/oui.csv
-    volumes:
-      - ./samples:/samples:ro
-      - ./data:/app/data:ro
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
+      db:
         condition: service_healthy
-    command: ["--pcap", "/samples/realistic_100_devices.pcap"]
-    # # Bắt buộc phải có 2 dòng này để Docker cho phép truy cập card mạng thật
-    # network_mode: host
-    # cap_add:
-    #   - NET_RAW
-    #   - NET_ADMIN
-    # # ...
-    # # Chạy chế độ iface thay vì pcap:
-    # command: [ "--iface", "eth0" ]
 
 volumes:
-  postgres_data:
+  pgdata:

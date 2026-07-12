@@ -1,33 +1,32 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <optional>
 #include <cstdint>
 
-namespace netmon {
+namespace pnads {
 
-// OsFingerprint — kết quả đoán hệ điều hành từ DHCP traffic.
-//
-// Kỹ thuật này gọi là "passive OS fingerprinting":
-//   - Hệ thống chỉ QUAN SÁT gói tin DHCP mà thiết bị gửi đi.
-//   - Không chủ động gửi thêm gói tin nào để dò hỏi.
-//
-// DHCP Option 55 (Parameter Request List):
-//   Khi một thiết bị xin địa chỉ IP (DHCP Discover/Request), nó sẽ kèm
-//   theo danh sách các tùy chọn mà nó muốn nhận từ server (ví dụ: subnet mask,
-//   default gateway, DNS server, ...).
-//   Danh sách này (option 55) rất đặc trưng cho từng hệ điều hành và
-//   phiên bản khác nhau, giống như "dấu vân tay" (fingerprint).
-//
-struct OsFingerprint {
-    std::string os_family;   // "Windows", "Linux", "macOS", "iOS", "Android", "Unknown"
-    std::string detail;      // phiên bản nếu có thể xác định được
-    float       confidence;  // độ tin cậy từ 0.0 đến 1.0
+// Tập hợp tín hiệu từ nhiều nguồn dùng để suy luận OS
+struct FingerprintSignals {
+    std::optional<uint8_t>     observed_ttl;        // từ IPv4 header
+    std::vector<uint8_t>       dhcp_param_list;      // DHCP option 55
+    std::optional<std::string> tls_sni;              // từ TLS Client Hello port 443 (SNI hostname)
+    std::optional<std::string> mdns_service_type;    // "_airplay._tcp" ...
+    std::optional<std::string> ssdp_server_header;
 };
 
-// Đoán OS dựa trên nội dung của DHCP Option 55.
-// Input: param_request_list lấy từ DhcpInfo.param_request_list
-// Output: OsFingerprint với os_family, detail, confidence
-OsFingerprint fingerprint_from_dhcp_options(
-    const std::vector<uint8_t>& param_request_list);
+// Kết quả suy luận OS
+struct OsGuessResult {
+    std::string              os_name;      // "Windows", "macOS", "Linux", "Android", "iOS", "IoT/Embedded", "Unknown"
+    float                    confidence;   // 0.0 - 1.0
+    std::vector<std::string> matched_rules; // để giải thích kết quả (audit/log)
+};
 
-} // namespace netmon
+// OsFingerprint — rule-based, nhiều tín hiệu, có trọng số
+// Mỗi tín hiệu đóng góp "phiếu bầu" theo trọng số; OS có tổng điểm cao nhất thắng.
+class OsFingerprint {
+public:
+    OsGuessResult guess(const FingerprintSignals& s) const;
+};
+
+} // namespace pnads

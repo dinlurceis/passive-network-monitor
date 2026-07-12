@@ -9,7 +9,7 @@
 struct pcap;
 typedef struct pcap pcap_t;
 
-namespace netmon {
+namespace pnads {
 
 struct RawPacket {
     const uint8_t* data;
@@ -50,4 +50,4 @@ private:
     PcapReader& operator=(const PcapReader&) = delete;
 };
 
-} // namespace netmon
+} // namespace pnads

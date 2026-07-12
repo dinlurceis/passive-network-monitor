@@ -1,18 +1,18 @@
 #pragma once
 #include <string>
 
-namespace netmon {
+namespace pnads {
 
 struct Config {
-    // Database
+    // Cơ sở dữ liệu
     std::string db_host     = "localhost";
     int         db_port     = 5432;
-    std::string db_name     = "netmon";
-    std::string db_user     = "netmon";
+    std::string db_name     = "pnads";
+    std::string db_user     = "pnads";
     std::string db_password = "secret";
 
     // Capture
-    std::string pcap_file   = "1.pcap";       // empty = live capture
+    std::string pcap_file   = "";       // chuỗi rỗng = live capture
     std::string interface   = "eth0";   // dùng khi pcap_file empty
     int         snaplen     = 65535;
     int         timeout_ms  = 1000;
@@ -20,17 +20,18 @@ struct Config {
     // App
     std::string log_level   = "info";
     std::string oui_file    = "data/oui.csv";
-    std::string model_path  = "models/anomaly_model.onnx";
     int         api_port    = 8080;
 
     // Thresholds
-    int         asset_timeout_sec = 300;  // giây không thấy → is_active=false
+    int   asset_timeout_sec       = 300;  // giây không thấy → is_active=false
+    int   arp_spoof_window_sec    = 60;   // cửa sổ thời gian phát hiện ARP spoofing
+    int   arp_spoof_mac_threshold = 2;    // số MAC khác nhau cho cùng IP → alert
 
-    // Load từ environment variables
+    // Load từ environment variables (tự động load .env nếu có)
     static Config from_env();
 
     // Trả về connection string cho libpqxx
     std::string db_connection_string() const;
 };
 
-} // namespace netmon
+} // namespace pnads

@@ -19,10 +19,8 @@ struct IPv4Header {
     size_t                 payload_len;
 };
 
-// Parse IPv4 header. Trả về nullopt nếu quá ngắn hoặc không phải IPv4.
 std::optional<IPv4Header> parse_ipv4(const uint8_t* data, size_t len);
 
-// Tiện ích: chuyển mảng 4 byte IP → chuỗi "192.168.1.1"
 std::string ip_to_string(const std::array<uint8_t, 4>& ip);
 
 } // namespace pnads

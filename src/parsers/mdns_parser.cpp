@@ -1,5 +1,6 @@
 #include "mdns_parser.hpp"
 #include <algorithm>
+#include <cstring>
 
 namespace pnads {
 
@@ -12,10 +13,10 @@ std::optional<MdnsRecord> parse_mdns(const uint8_t* data, size_t len,
     rec.src_ip = src_ip;
 
     for (const auto& ans : msg->answers) {
-        // A or AAAA record → hostname is the name portion without ".local"
+        // Record A/AAAA: hostname là phần name bỏ đi đuôi ".local"
         if ((ans.type == 1 || ans.type == 28) && !ans.name.empty()) {
             std::string name = ans.name;
-            // Strip ".local" suffix
+            // Cắt bỏ đuôi ".local"
             constexpr std::string_view LOCAL = ".local";
             if (name.size() > LOCAL.size() &&
                 name.compare(name.size() - LOCAL.size(), LOCAL.size(), LOCAL) == 0) {
@@ -24,15 +25,16 @@ std::optional<MdnsRecord> parse_mdns(const uint8_t* data, size_t len,
             if (rec.hostname.empty()) rec.hostname = name;
         }
 
-        // PTR record → service type is the name, hostname is in rdata
+        // Record PTR: name là service type, hostname nằm trong rdata
         if (ans.type == 12) {
-            if (ans.name.find("._tcp.local") != std::string::npos ||
-                ans.name.find("._udp.local") != std::string::npos) {
-                if (rec.service_type.empty()) rec.service_type = ans.name;
+            // Nhận diện các service type quen thuộc, kể cả giao thức IoT hiện đại
+            const std::string& n = ans.name;
+            if (n.find("._tcp.local") != std::string::npos ||
+                n.find("._udp.local") != std::string::npos) {
+                if (rec.service_type.empty()) rec.service_type = n;
             }
-            // Extract instance name from PTR rdata (e.g., "MyDevice._airplay._tcp.local")
+            // Lấy instance name từ rdata của PTR (vd: "MyDevice._airplay._tcp.local")
             if (rec.hostname.empty() && !ans.rdata_str.empty()) {
-                // First label before the first dot is often the device name
                 auto dot = ans.rdata_str.find('.');
                 if (dot != std::string::npos) {
                     rec.hostname = ans.rdata_str.substr(0, dot);
@@ -40,9 +42,26 @@ std::optional<MdnsRecord> parse_mdns(const uint8_t* data, size_t len,
             }
         }
 
-        // TXT record → look for model hint keys
+        // Record SRV (type 33): priority(2) + weight(2) + port(2) + target
+        // parse_dns_message hiện chỉ decode target vào rdata_str, chưa lấy port;
+        // phần port sẽ bổ sung ở dns_message.cpp sau, ở đây dùng những gì đang có.
+        if (ans.type == 33 && !ans.name.empty()) {
+            if (rec.srv_target.empty() && !ans.rdata_str.empty()) {
+                rec.srv_target = ans.rdata_str;
+            }
+            // Lấy service type từ owner name của SRV: "instance._svc._tcp.local"
+            if (rec.service_type.empty()) {
+                // Tìm cụm "._" đầu tiên để tách ra service type
+                auto svc_start = ans.name.find("._");
+                if (svc_start != std::string::npos) {
+                    rec.service_type = ans.name.substr(svc_start + 1);
+                }
+            }
+        }
+
+        // Record TXT: tìm các key gợi ý model
         if (ans.type == 16 && !ans.rdata_str.empty()) {
-            // Search for "model=", "md=", "fn=" patterns
+            // Dò các mẫu "model=", "md=", "fn="
             for (const auto& prefix : {"model=", "md=", "fn="}) {
                 auto p = ans.rdata_str.find(prefix);
                 if (p != std::string::npos) {
@@ -56,7 +75,7 @@ std::optional<MdnsRecord> parse_mdns(const uint8_t* data, size_t len,
         }
     }
 
-    // Return nullopt if we got no useful info
+    // Không thu được thông tin gì hữu ích thì trả về nullopt
     if (rec.hostname.empty() && rec.service_type.empty()) return std::nullopt;
 
     return rec;

@@ -7,7 +7,7 @@
 
 namespace pnads {
 
-// DHCP message types (option 53)
+// Các loại bản tin DHCP (option 53)
 enum class DhcpMsgType : uint8_t {
     DISCOVER = 1,
     OFFER    = 2,
@@ -42,6 +42,8 @@ std::optional<DhcpInfo> parse_dhcp(const uint8_t* data, size_t len);
 // DHCP nằm trên UDP port 67 (server) và 68 (client)
 constexpr uint16_t DHCP_SERVER_PORT = 67;
 constexpr uint16_t DHCP_CLIENT_PORT = 68;
+
+// magic cookie báo hiệu phần options bắt đầu
 constexpr uint32_t DHCP_MAGIC_COOKIE = 0x63825363;
 
 } // namespace pnads

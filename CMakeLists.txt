@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(passive-network-monitor VERSION 0.1.0 LANGUAGES CXX)
+project(pnads VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,31 +23,40 @@ find_package(spdlog REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(Threads REQUIRED)
 
-# Source files (phase 1 + phase 2)
+# Source files
 set(SOURCES
     src/main.cpp
+    src/util/binary_reader.cpp
     src/config/config.cpp
     src/capture/pcap_reader.cpp
     src/parsers/ethernet_parser.cpp
     src/parsers/arp_parser.cpp
     src/parsers/dhcp_parser.cpp
-    src/parsers/ipv4_parser.cpp             # Phase 2: IPv4/UDP parser
+    src/parsers/ipv4_parser.cpp
+    src/parsers/udp_parser.cpp
+    src/parsers/dns_message.cpp
+    src/parsers/mdns_parser.cpp
+    src/parsers/ssdp_parser.cpp
     src/tracker/asset_tracker.cpp
     src/db/db_manager.cpp
-    src/enrichment/oui_lookup.cpp           # Phase 2: vendor lookup
-    src/enrichment/os_fingerprint.cpp      # Phase 2: OS fingerprinting
-    src/api/rest_server.cpp                # Phase 4: REST API Server
+    src/enrichment/oui_lookup.cpp
+    src/enrichment/os_fingerprint.cpp
+    src/detection/detection_engine.cpp
+    src/detection/rule_new_device.cpp
+    src/detection/rule_watchlist.cpp
+    src/detection/rule_arp_spoofing.cpp
+    src/api/rest_server.cpp
 )
 
-add_executable(netmon ${SOURCES})
+add_executable(pnads ${SOURCES})
 
-target_include_directories(netmon PRIVATE
+target_include_directories(pnads PRIVATE
     src/
     ${PCAP_INCLUDE_DIRS}
     ${PostgreSQL_INCLUDE_DIRS}
 )
 
-target_link_libraries(netmon PRIVATE
+target_link_libraries(pnads PRIVATE
     ${PCAP_LIBRARIES}
     $<IF:$<TARGET_EXISTS:libpqxx::pqxx>,libpqxx::pqxx,${PQXX_LIBRARIES}>
     PostgreSQL::PostgreSQL

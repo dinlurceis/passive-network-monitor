@@ -1,16 +1,52 @@
 #pragma once
-#include "../tracker/asset.hpp"
+#include "tracker/asset.hpp"
 #include <pqxx/pqxx>
 #include <string>
 #include <vector>
 #include <optional>
 #include <memory>
 
-namespace netmon {
+namespace pnads {
+
+struct WatchlistEntry {
+    int         id;
+    std::string mac;
+    std::string ip;
+    std::string label;
+    std::string note;
+};
+
+struct AlertRecord {
+    int         id;
+    int         asset_id;
+    std::string rule_type;
+    std::string severity;
+    std::string message;
+    std::string detail_json;
+    bool        acknowledged;
+    std::string ts;
+};
+
+// Một bucket dữ liệu theo thời gian
+struct TimeseriesBucket {
+    std::string bucket;  // "2026-06-27" hoặc "2026-06-27T14:00"
+    std::string key;     // event_type hoặc protocol
+    int         count;
+};
+
+// Kết quả phân trang
+template<typename T>
+struct PageResult {
+    std::vector<T> data;
+    int            total;       // tổng số hàng (không phân trang)
+    int            page;        // trang hiện tại (1-indexed)
+    int            page_size;   // số hàng mỗi trang
+    int            total_pages; // ceil(total / page_size)
+};
 
 class DbManager {
 public:
-    explicit DbManager(const std::string& connection_str);
+    explicit DbManager(const std::string& conn_str);
     ~DbManager() = default;
 
     // Khởi tạo schema (CREATE TABLE IF NOT EXISTS inline)
@@ -20,33 +56,95 @@ public:
     std::optional<Asset> find_asset_by_mac(const std::string& mac);
     std::optional<Asset> find_asset_by_ip(const std::string& ip);
     Asset                insert_asset(const Asset& a);
-    void                 update_asset(const Asset& a);      // full update
+    void                 update_asset(const Asset& a);
     void                 update_asset_last_seen(int id);
     void                 update_asset_ip(int id, const std::string& ip);
     void                 update_asset_hostname(int id, const std::string& hostname);
     void                 update_asset_vendor(int id, const std::string& vendor);
-    void                 update_asset_os_guess(int id, const std::string& os_guess);
+    void                 update_asset_os(int id, const std::string& os_guess, float confidence);
+    void                 update_asset_discovered_via(int id, const std::vector<std::string>& via);
+    void                 update_asset_trusted(int id, bool trusted);
     void                 set_asset_inactive(int id);
 
-    // Event
+    // Events
+    struct EventBuffer {
+        int asset_id;
+        std::string event_type;
+        std::string protocol;
+        std::string old_val;
+        std::string new_val;
+        std::string detail_json;
+    };
+
     void insert_event(int asset_id,
                       const std::string& event_type,
-                      const std::string& old_val = "",
-                      const std::string& new_val = "",
+                      const std::string& protocol    = "unknown",
+                      const std::string& old_val     = "",
+                      const std::string& new_val     = "",
                       const std::string& detail_json = "{}");
 
-    // Queries
+    void insert_events_batch(const std::vector<EventBuffer>& events);
+
+    std::vector<pqxx::row> get_events_by_asset(const std::string& mac, int limit = 100);
+
+    // Alerts
+    void                    insert_alert(int asset_id,
+                                         const std::string& rule_type,
+                                         const std::string& severity,
+                                         const std::string& message,
+                                         const std::string& detail_json = "{}");
+    std::vector<AlertRecord> get_alerts(bool unacked_only = false,
+                                         const std::string& severity_filter = "");
+    void                    ack_alert(int id);
+
+    // Watchlist
+    std::vector<WatchlistEntry> get_watchlist();
+    WatchlistEntry              insert_watchlist(const std::string& mac,
+                                                  const std::string& ip,
+                                                  const std::string& label,
+                                                  const std::string& note = "");
+    void                        delete_watchlist(int id);
+
+    // Truy vấn
     std::vector<Asset> get_all_assets(bool active_only = false);
     std::vector<Asset> get_assets_not_seen_since(int seconds_ago);
 
-    // Ping DB để check connectivity
+    // Truy vấn có phân trang (mặc định 20 hàng/trang)
+    PageResult<Asset>       get_all_assets_paged(bool active_only, int page, int page_size = 20);
+    PageResult<AlertRecord> get_alerts_paged(bool unacked_only, const std::string& severity,
+                                              int page, int page_size = 20);
+
+    // Events của tất cả asset, có phân trang (dùng cho tab Events)
+    struct EventRow {
+        int         id;
+        int         asset_id;
+        std::string mac;
+        std::string event_type;
+        std::string protocol;
+        std::string old_value;
+        std::string new_value;
+        std::string detail;
+        std::string ts;
+    };
+    PageResult<EventRow>    get_events_paged(const std::string& type_filter,
+                                              const std::string& protocol_filter,
+                                              int page, int page_size = 20);
+
+    // Thống kê
+    int get_total_events();
+    int get_unacked_alerts_count();
+    std::vector<TimeseriesBucket> get_timeseries(const std::string& interval,
+                                                   int range_hours,
+                                                   const std::string& group_by,
+                                                   const std::string& asset_mac = "");
+
+    // Tiện ích
     bool ping();
 
 private:
-    std::unique_ptr<pqxx::connection> connection_;
+    std::unique_ptr<pqxx::connection> conn_;
 
-    // Helper: convert pqxx row → Asset struct
     Asset row_to_asset(const pqxx::row& row);
 };
 
-} // namespace netmon
+} // namespace pnads

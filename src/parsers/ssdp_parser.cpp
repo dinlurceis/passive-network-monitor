@@ -16,7 +16,7 @@ std::optional<SsdpMessage> parse_ssdp(const uint8_t* data, size_t len,
 
     BinaryReader r(data, len);
 
-    // Read first line — method or response
+    // Đọc dòng đầu tiên - method hoặc response
     auto first_line = r.read_line();
     if (!first_line) return std::nullopt;
 
@@ -29,7 +29,7 @@ std::optional<SsdpMessage> parse_ssdp(const uint8_t* data, size_t len,
     else if (fl.rfind("HTTP/", 0) == 0)    msg.method = "200 OK";
     else return std::nullopt;  // Not a recognized SSDP message
 
-    // Read headers until empty line
+    // Đọc các headers cho đến dòng trống
     while (r.remaining() > 0) {
         auto line = r.read_line();
         if (!line || line->empty()) break;
@@ -40,13 +40,16 @@ std::optional<SsdpMessage> parse_ssdp(const uint8_t* data, size_t len,
         std::string key = to_lower(line->substr(0, colon));
         std::string val = line->substr(colon + 1);
 
-        // Strip leading whitespace from value
+        // Cắt bỏ khoảng trắng ở đầu
         val.erase(0, val.find_first_not_of(" \t"));
-        // Strip trailing whitespace
+        // Cắt bỏ khoảng trắng ở cuối
         while (!val.empty() && (val.back() == ' ' || val.back() == '\t' || val.back() == '\r'))
             val.pop_back();
 
         msg.headers[key] = val;
+
+        // Convenience: hoist LOCATION ra field riêng
+        if (key == "location") msg.location = val;
     }
 
     if (msg.headers.empty()) return std::nullopt;

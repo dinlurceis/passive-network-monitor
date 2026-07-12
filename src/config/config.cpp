@@ -4,33 +4,31 @@
 #include <fstream>
 #include <sstream>
 
-namespace netmon {
+namespace pnads {
 
-// Hàm đơn giản để đọc file .env và set environment variables
+// Load file .env và set environment variables (không ghi đè biến đã có)
 static void load_dotenv(const std::string& path = ".env") {
     std::ifstream file(path);
     if (!file.is_open()) return;
 
     std::string line;
     while (std::getline(file, line)) {
-        // Bỏ qua dòng trống hoặc comment
         if (line.empty() || line[0] == '#') continue;
 
         auto pos = line.find('=');
-        if (pos != std::string::npos) {
-            std::string key = line.substr(0, pos);
-            std::string val = line.substr(pos + 1);
-            
-            // Xóa khoảng trắng và dấu ngoặc kép thừa
-            key.erase(0, key.find_first_not_of(" \t\r\n"));
-            key.erase(key.find_last_not_of(" \t\r\n") + 1);
-            val.erase(0, val.find_first_not_of(" \t\r\n\"'"));
-            val.erase(val.find_last_not_of(" \t\r\n\"'") + 1);
+        if (pos == std::string::npos) continue;
 
-            // Chỉ set nếu biến chưa tồn tại trong môi trường
-            if (std::getenv(key.c_str()) == nullptr) {
-                setenv(key.c_str(), val.c_str(), 0);
-            }
+        std::string key = line.substr(0, pos);
+        std::string val = line.substr(pos + 1);
+
+        // Cắt bỏ khoảng trắng và dấu nháy
+        key.erase(0, key.find_first_not_of(" \t\r\n"));
+        key.erase(key.find_last_not_of(" \t\r\n") + 1);
+        val.erase(0, val.find_first_not_of(" \t\r\n\"'"));
+        val.erase(val.find_last_not_of(" \t\r\n\"'") + 1);
+
+        if (!key.empty() && std::getenv(key.c_str()) == nullptr) {
+            setenv(key.c_str(), val.c_str(), 0);
         }
     }
 }
@@ -40,21 +38,29 @@ static std::string getenv_or(const char* name, const std::string& def) {
     return v ? std::string(v) : def;
 }
 
+static int getenv_int(const char* name, int def) {
+    const char* v = std::getenv(name);
+    if (!v) return def;
+    try { return std::stoi(v); } catch (...) { return def; }
+}
+
 Config Config::from_env() {
-    load_dotenv(); // Tự động load file .env ở thư mục chạy
+    load_dotenv();
 
     Config c;
-    c.db_host       = getenv_or("DB_HOST",     "localhost");
-    c.db_port       = std::stoi(getenv_or("DB_PORT", "5432"));
-    c.db_name       = getenv_or("DB_NAME",     "netmon");
-    c.db_user       = getenv_or("DB_USER",     "netmon");
-    c.db_password   = getenv_or("DB_PASSWORD", "secret");
+    c.db_host                 = getenv_or("DB_HOST",     "localhost");
+    c.db_port                 = getenv_int("DB_PORT",    5432);
+    c.db_name                 = getenv_or("DB_NAME",     "pnads");
+    c.db_user                 = getenv_or("DB_USER",     "pnads");
+    c.db_password             = getenv_or("DB_PASSWORD", "secret");
     c.pcap_file     = getenv_or("PCAP_FILE",   "");
     c.interface     = getenv_or("INTERFACE",   "eth0");
     c.log_level     = getenv_or("LOG_LEVEL",   "info");
-    c.oui_file      = getenv_or("OUI_FILE",    "data/oui.csv");
-    c.model_path    = getenv_or("MODEL_PATH",  "models/anomaly_model.onnx");
-    c.api_port      = std::stoi(getenv_or("API_PORT", "8080"));
+    c.oui_file                = getenv_or("OUI_FILE",    "data/oui.csv");
+    c.api_port                = getenv_int("API_PORT",   8080);
+    c.asset_timeout_sec       = getenv_int("ASSET_TIMEOUT_SEC",       300);
+    c.arp_spoof_window_sec    = getenv_int("ARP_SPOOF_WINDOW_SEC",    60);
+    c.arp_spoof_mac_threshold = getenv_int("ARP_SPOOF_MAC_THRESHOLD", 2);
     return c;
 }
 
@@ -65,4 +71,4 @@ std::string Config::db_connection_string() const {
     );
 }
 
-} // namespace netmon
+} // namespace pnads
